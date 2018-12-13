@@ -1,5 +1,5 @@
 """
-Discriminators with multilayer perceptron architecture
+Discriminators with multilayer perceptron architecture for conditional GANs
 
 Author: Mohamad Atayi
 """
