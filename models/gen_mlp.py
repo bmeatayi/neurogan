@@ -60,11 +60,11 @@ class Generator(nn.Module):
         r"""
         Generate spikes
         Args:
-            z: input noise
-            stim: stimulus
+            z (tensor): input noise
+            stim (tensor): stimulus
 
         Returns:
-            discrete spikes
+            discrete spikes (tensor)
         """
         with torch.no_grad():
             logits = self.forward(z, stim)
