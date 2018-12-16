@@ -103,19 +103,17 @@ class TrainerCGAN(object):
                 fake_label = FloatTensor(batch_size, 1).fill_(0.0)
 
                 if i % n_disc_train == 0:
-                    # Train generator
+                    # Train Generator
                     optim_g.zero_grad()
                     z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
                     fake_logits = generator(z, stim)
-                    pred_fake = discriminator(self._logit2sample(fake_logits), stim)
+                    fake_samples = self._logit2sample(fake_logits)
+                    pred_fake = discriminator(fake_samples, stim)
 
-                    if self.gan_mode == 'wgan-gp':
-                        g_loss = -pred_fake.mean()
-                    elif self.gan_mode == 'js':
-                        g_loss = F.binary_cross_entropy_with_logits(inputs=pred_fake, target=real_label)
-                    elif self.gan_mode == 'sn':
-                        pass
-                        # TODO: Implement Spectral Normalization
+                    g_loss = self._compute_g_loss(pred_fake=pred_fake,
+                                                  fake_logits=fake_logits,
+                                                  fake_samples=fake_samples,
+                                                  real_labels=real_label)
 
                     g_loss.backward()
                     optim_g.step()
@@ -307,3 +305,20 @@ class TrainerCGAN(object):
         plt.close()
         generator.train()
         discriminator.train()
+
+    def _compute_g_loss(self, pred_fake, fake_logits, fake_samples, real_labels):
+        if self.gan_mode == 'wgan-gp':
+            g_loss = -pred_fake.mean()
+        elif self.gan_mode == 'js':
+            g_loss = F.binary_cross_entropy_with_logits(inputs=pred_fake, target=real_labels)
+        elif self.gan_mode == 'sn':
+            pass
+            # TODO: Implement Spectral Normalization
+
+        if self.grad_mode is 'reinforce':
+            distr = self.bernoulli_sampler(logits=fake_logits)
+            g_loss = g_loss.detach() * distr.log_prob(fake_samples)
+        elif self.grad_mode is 'rebar':
+            pass
+            # TODO: Implement REBAR
+        return g_loss
