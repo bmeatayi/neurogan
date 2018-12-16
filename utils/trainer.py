@@ -173,8 +173,8 @@ class TrainerCGAN(object):
         if self.grad_mode is 'gs':
             return self.gumbel_softmax(fake_logits)
         elif self.grad_mode is 'reinforce':
-            sampler = self.bernoulli_sampler(logits=fake_logits)
-            return sampler.sample()
+            self.sampler = self.bernoulli_sampler(logits=fake_logits)
+            return self.sampler.sample()
         elif self.grad_mode is 'rebar':
             return None
             # TODO: IMPLEMENT REBAR
@@ -251,6 +251,22 @@ class TrainerCGAN(object):
         viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
         pdf.savefig(bbox_inches='tight')
 
+        real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
+        real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
+        real_w_shared_noise = -.5
+
+        gen_glm_filters = generator.GLM.weight.detach().cpu().numpy().reshape(real_glm_filters.shape)
+        gen_glm_biases = generator.GLM.bias.detach().cpu().numpy()
+        gen_w_shared_noise = generator.shn_layer.weight.detach().cpu().numpy()
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        ax[0].set_title('GLM filter parameters')
+        ax[0].plot([-1, 2], [-1, 2], 'black')
+        ax[0].plot(real_glm_filters.flatten(), np.flip(gen_glm_filters, axis=(1, 2)).flatten(), '.')
+        ax[0].plot(real_w_shared_noise, gen_w_shared_noise, '*', markersize=5, label='Shared noise scale')
+
+        ax[1].set_title('GLM biases')
+        ax[1].plot([-6, -3], [-6, -3], 'black')
+        ax[1].plot(real_glm_biases, gen_glm_biases, '.')
 
         # for i, spikes in enumerate(fake_data.transpose(2, 0, 1)):
         #     fig, ax = plt.subplots(2, 2, figsize=(20, 5))
@@ -288,20 +304,18 @@ class TrainerCGAN(object):
         pdf.close()
         plt.close()
 
-        GLM_filters = generator.GLM.weight.detach().cpu().numpy()
-        N = GLM_filters.shape[0]
-        fig, ax = plt.subplots(1, N, figsize=(40, 5))
-        for i, f in enumerate(GLM_filters):
-            ax[i].imshow(np.flip(f.reshape((30, 40)), axis=(0, 1)))
-            ax[i].set_xlabel('x')
-            ax[i].set_ylabel('t')
-            ax[i].set_xticks([])
-            ax[i].set_yticks([])
-            ax[i].set_title('Neuron' + str(i))
-
-        # ax[0].imshow(np.flip(GLM_filters[0, :].reshape((20, 10)), axis=(0, 1)))
-        # ax[1].imshow(np.flip(GLM_filters[1, :].reshape((20, 10)), axis=(0, 1)))
-        plt.savefig(self.log_folder + 'filt %i.jpg' % batches_done, dpi=120)
+        # GLM_filters = generator.GLM.weight.detach().cpu().numpy()
+        # N = GLM_filters.shape[0]
+        # fig, ax = plt.subplots(1, N, figsize=(40, 5))
+        # for i, f in enumerate(GLM_filters):
+        #     ax[i].imshow(np.flip(f.reshape((30, 40)), axis=(0, 1)))
+        #     ax[i].set_xlabel('x')
+        #     ax[i].set_ylabel('t')
+        #     ax[i].set_xticks([])
+        #     ax[i].set_yticks([])
+        #     ax[i].set_title('Neuron' + str(i))
+        #
+        # plt.savefig(self.log_folder + 'filt %i.jpg' % batches_done, dpi=120)
         plt.close()
         generator.train()
         discriminator.train()
@@ -316,9 +330,8 @@ class TrainerCGAN(object):
             # TODO: Implement Spectral Normalization
 
         if self.grad_mode is 'reinforce':
-            distr = self.bernoulli_sampler(logits=fake_logits)
-            g_loss = g_loss.detach() * distr.log_prob(fake_samples)
+            g_loss = g_loss.detach() * self.sampler.log_prob(fake_samples)
         elif self.grad_mode is 'rebar':
             pass
             # TODO: Implement REBAR
-        return g_loss
+        return g_loss.sum()
