@@ -24,7 +24,8 @@ class TrainerCGAN(object):
                  gan_mode='js',
                  lambda_gp=None,
                  grad_mode='gs',
-                 gs_temp = None
+                 gs_temp = None,
+                 n_neuron= None
                  ):
         r"""
         Trainer class for conditional GAN
@@ -52,8 +53,9 @@ class TrainerCGAN(object):
         assert gan_mode == 'wgan-gp' and lambda_gp is not None, "lambda_gp is not given!"
 
         if grad_mode is 'gs':
-            assert gs_temp == None, 'gs_temp is not given!'
-            self.gumbel_softmax = GumbelSoftmaxBinary(gs_temp=gs_temp)
+            assert gs_temp is not None, 'gs_temp is not given!'
+            assert n_neuron is not None, 'n_unit is not given!'
+            self.gumbel_softmax = GumbelSoftmaxBinary(n_unit=n_neuron, gs_temp=gs_temp)
         elif grad_mode is 'reinforce':
             self.bernoulli_sampler = torch.distributions.bernoulli.Bernoulli
         self.lambda_gp = lambda_gp
@@ -73,8 +75,7 @@ class TrainerCGAN(object):
     def train(self, generator, discriminator, train_loader, val_loader,
               lr=0.0002, b1=0.5, b2=0.999,
               log_interval=400, n_epochs=200,
-              n_disc_train=5
-              ):
+              n_disc_train=5):
 
         self.logger.add_text('G-Architecture', repr(generator))
         self.logger.add_text('D-Architecture', repr(discriminator))
@@ -153,11 +154,9 @@ class TrainerCGAN(object):
                 batches_done = epoch * len(train_loader) + i
                 if batches_done % log_interval == 0:
                     self.log_result(generator, discriminator,
-                                    batches_done, tr_loader=train_loader,
+                                    batches_done,
                                     val_loader=val_loader)
-        self.log_result(generator, discriminator,
-                        batches_done, tr_loader=train_loader,
-                        val_loader=val_loader)
+        self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
         self.plot_loss_history()
         self.logger.export_scalars_to_json(self.log_folder + "./all_scalars.json")
@@ -231,7 +230,7 @@ class TrainerCGAN(object):
         fake_data = np.squeeze(fake_data.numpy())
         real_data = np.squeeze(real_data.detach().cpu().numpy())
 
-        pdf = PdfPages(self.out_folder + 'iter_' + str(batches_done) + '.pdf')
+        pdf = PdfPages(self.log_folder + 'iter_' + str(batches_done) + '.pdf')
         if fake_data.ndim == 2:
             fake_data = fake_data[:, :, np.newaxis]
             real_data = real_data[:, :, np.newaxis]
@@ -241,11 +240,14 @@ class TrainerCGAN(object):
         fig, ax = plt.subplots(figsize=(5, 5))
         viz.mean(fake_data, '')
         pdf.savefig(bbox_inches='tight')
+
         viz.std(fake_data, '')
         pdf.savefig(bbox_inches='tight')
-        viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
-        pdf.savefig(bbox_inches='tight')
+
         viz.corr(fake_data, model='')
+        pdf.savefig(bbox_inches='tight')
+
+        viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
         pdf.savefig(bbox_inches='tight')
 
 
@@ -298,7 +300,7 @@ class TrainerCGAN(object):
 
         # ax[0].imshow(np.flip(GLM_filters[0, :].reshape((20, 10)), axis=(0, 1)))
         # ax[1].imshow(np.flip(GLM_filters[1, :].reshape((20, 10)), axis=(0, 1)))
-        plt.savefig(self.out_folder + 'filt %i.jpg' % batches_done, dpi=120)
+        plt.savefig(self.log_folder + 'filt %i.jpg' % batches_done, dpi=120)
         plt.close()
         generator.train()
         discriminator.train()
