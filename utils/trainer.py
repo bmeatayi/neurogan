@@ -158,7 +158,7 @@ class TrainerCGAN(object):
                                     val_loader=val_loader)
         self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
-        self.plot_loss_history()
+        # self.plot_loss_history()
         self.logger.export_scalars_to_json(self.log_folder + "./all_scalars.json")
         self.logger.close()
         torch.save(generator, self.log_folder + 'generator.pt')
@@ -245,6 +245,9 @@ class TrainerCGAN(object):
         pdf.savefig(bbox_inches='tight')
 
         viz.corr(fake_data, model='')
+        pdf.savefig(bbox_inches='tight')
+
+        viz.noise_corr(fake_data, model='')
         pdf.savefig(bbox_inches='tight')
 
         viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
