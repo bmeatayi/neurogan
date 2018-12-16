@@ -185,14 +185,16 @@ class TrainerCGAN(object):
     def compute_gp(self, discriminator, real_sample, fake_sample, stim):
         r"""
         Computes gradient penatly in WGAN-GP method
+        Reference: Gulrajani et. al. (2017). Improved training of Wasserstein GANs.
+
         Args:
-            discriminator:
-            real_sample:
-            fake_sample:
-            stim:
+            discriminator (torch.nn.Module): Discriminator
+            real_sample (torch.nn.Module): Real samples
+            fake_sample (torch.tensor: Fake samples
+            stim (torch.tensor): Stimulation
 
         Returns:
-
+            gradient penalty (torch.tensor)
         """
         alpha = FloatTensor(np.random.rand(real_sample.size(0), 1, 1))
         ip = autograd.Variable(alpha * real_sample - (1 - alpha) * fake_sample, requires_grad=True)
@@ -204,14 +206,14 @@ class TrainerCGAN(object):
                                     create_graph=True, only_inputs=True)[0]
         return ((grads.norm(2, dim=1) - 1) ** 2).mean()
 
-    def log_result_GLM1D_multi_neuron(self, generator, discriminator, batches_done,
-                                      tr_loader, val_loader,
-                                      n_sample=200, n_row=50):
+    def log_result(self, generator, discriminator, batches_done, val_loader, n_sample=200):
+
         generator.eval()
         discriminator.eval()
 
-        gen_data = torch.zeros([0, 0, 0, 0])
+        fake_data = torch.zeros([0, 0, 0, 0])
         real_data = torch.zeros([0, 0, 0, 0])
+
         for j in range(n_sample):
             temp_gen = torch.zeros([0, 0, 0])
             temp_real = torch.zeros([0, 0, 0])
@@ -220,66 +222,66 @@ class TrainerCGAN(object):
                 batch_size = cnt.shape[0]
                 stim = stim.type(FloatTensor)
                 z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
-                fake_sample = generator(z, stim)
+                fake_sample = generator.generate(z, stim)
                 temp_gen = torch.cat((temp_gen, fake_sample.detach().cpu()))
                 temp_real = torch.cat((temp_real, cnt.type(FloatTensor)))
-            gen_data = torch.cat((gen_data, temp_gen.unsqueeze(0)))
+            fake_data = torch.cat((fake_data, temp_gen.unsqueeze(0)))
             real_data = torch.cat((real_data, temp_real.unsqueeze(0)))
 
-        gen_data = np.squeeze(gen_data.numpy())
-        # gen_data[gen_data > .5] = 1
-        # gen_data[gen_data <= .5] = 0
+        fake_data = np.squeeze(fake_data.numpy())
         real_data = np.squeeze(real_data.detach().cpu().numpy())
 
         pdf = PdfPages(self.out_folder + 'iter_' + str(batches_done) + '.pdf')
-        if gen_data.ndim == 2:
-            gen_data = gen_data[:, :, np.newaxis]
+        if fake_data.ndim == 2:
+            fake_data = fake_data[:, :, np.newaxis]
             real_data = real_data[:, :, np.newaxis]
 
         # Evaluation metrics
         viz = Visualize(real_data, time=1)  # specify time for correct firing rates
         fig, ax = plt.subplots(figsize=(5, 5))
-        viz.mean(gen_data, '')
+        viz.mean(fake_data, '')
         pdf.savefig(bbox_inches='tight')
-        viz.std(gen_data, '')
+        viz.std(fake_data, '')
         pdf.savefig(bbox_inches='tight')
-        viz.corr(gen_data, model='')
+        viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
         pdf.savefig(bbox_inches='tight')
-        viz.mean_per_bin(gen_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
+        viz.corr(fake_data, model='')
         pdf.savefig(bbox_inches='tight')
 
-        for i, spikes in enumerate(gen_data.transpose(2, 0, 1)):
-            fig, ax = plt.subplots(2, 2, figsize=(20, 5))
-            fig.suptitle('Neuron %i, iteration %i' % (i, batches_done))
-            ax[0, 0].imshow(spikes)
-            ax[0, 0].set_xlabel('time')
-            ax[0, 0].set_ylabel('repetitions')
-            ax[0, 0].set_xticks([])
-            ax[0, 0].set_yticks([])
-            ax[0, 0].set_title('GAN data')
 
-            ax[1, 0].imshow(real_data[:, :, i])
-            ax[1, 0].set_xlabel('time')
-            ax[1, 0].set_ylabel('repetitions')
-            ax[1, 0].set_xticks([])
-            ax[1, 0].set_yticks([])
-            ax[1, 0].set_title('Real data')
+        # for i, spikes in enumerate(fake_data.transpose(2, 0, 1)):
+        #     fig, ax = plt.subplots(2, 2, figsize=(20, 5))
+        #     fig.suptitle('Neuron %i, iteration %i' % (i, batches_done))
+        #     ax[0, 0].imshow(spikes)
+        #     ax[0, 0].set_xlabel('time')
+        #     ax[0, 0].set_ylabel('repetitions')
+        #     ax[0, 0].set_xticks([])
+        #     ax[0, 0].set_yticks([])
+        #     ax[0, 0].set_title('GAN data')
+        #
+        #     ax[1, 0].imshow(real_data[:, :, i])
+        #     ax[1, 0].set_xlabel('time')
+        #     ax[1, 0].set_ylabel('repetitions')
+        #     ax[1, 0].set_xticks([])
+        #     ax[1, 0].set_yticks([])
+        #     ax[1, 0].set_title('Real data')
+        #
+        #     ax[0, 1].plot(real_data[:, :, i].mean(axis=0), label='Real data')
+        #     ax[0, 1].plot(spikes.mean(axis=0), label='GAN data')
+        #     ax[0, 1].set_ylim(0, 1)
+        #     ax[0, 1].set_xlabel('time')
+        #     ax[0, 1].set_title('Mean firing rate')
+        #     ax[0, 1].legend(loc=1)
+        #
+        #     ax[1, 1].plot(real_data[:, :, i].std(axis=0), label='Real data')
+        #     ax[1, 1].plot(spikes.std(axis=0), label='GAN data')
+        #     ax[1, 1].set_xlabel('time')
+        #     ax[1, 1].set_title('Std of spike data')
+        #     ax[1, 1].legend(loc=1)
+        #     ax[1, 1].set_ylim(0, 1)
+        #     plt.subplots_adjust(top=0.9, bottom=0.1, hspace=.8, wspace=0.2)
+        #     pdf.savefig(fig)
 
-            ax[0, 1].plot(real_data[:, :, i].mean(axis=0), label='Real data')
-            ax[0, 1].plot(spikes.mean(axis=0), label='GAN data')
-            ax[0, 1].set_ylim(0, 1)
-            ax[0, 1].set_xlabel('time')
-            ax[0, 1].set_title('Mean firing rate')
-            ax[0, 1].legend(loc=1)
-
-            ax[1, 1].plot(real_data[:, :, i].std(axis=0), label='Real data')
-            ax[1, 1].plot(spikes.std(axis=0), label='GAN data')
-            ax[1, 1].set_xlabel('time')
-            ax[1, 1].set_title('Std of spike data')
-            ax[1, 1].legend(loc=1)
-            ax[1, 1].set_ylim(0, 1)
-            plt.subplots_adjust(top=0.9, bottom=0.1, hspace=.8, wspace=0.2)
-            pdf.savefig(fig)
         pdf.close()
         plt.close()
 
