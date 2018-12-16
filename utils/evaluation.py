@@ -84,6 +84,32 @@ class Evaluate:
         return np.corrcoef(generated.reshape(-1, self.n_neurons).T,
                            self.groundtruth.reshape(-1, self.n_neurons).T)
 
+    def signal_correlation(self, generated):
+        r"""
+        Computes signal correlation between pairs of neurons
+        Args:
+            generated (ndarray): generated spike data
+                    (#repeats, #bins, #neurons)
+
+        Returns:
+            ndarray: Square matrix of size (2 * n_neurons, 2 * n_neurons).
+        """
+        generated = self._check(generated)
+        return np.corrcoef(generated.mean(axis=0).T, self.groundtruth.mean(axis=0).T)
+
+    def noise_correlation(self, generated):
+        r"""
+        Computes noise correlation between pairs of neurons
+        Args:
+            generated (ndarray): generated spike data
+                    (#repeats, #bins, #neurons)
+
+        Returns:
+            ndarray: Square matrix of size (2 * n_neurons, 2 * n_neurons).
+        """
+        generated = self._check(generated)
+        return self.correlation(generated) - self.signal_correlation(generated)
+
     def lag_correlation(self, generated):
         """Lag-covariance between pairs of neurons.
 
@@ -245,7 +271,7 @@ class Visualize(Evaluate):
             object: Axis object.
         """
         if not ax:
-            ax = self.plot.init_subplot('Pairwise Correlation')
+            ax = self.plot.init_subplot('Pairwise Total Correlation')
         corr = self.correlation(generated)
         triu_idx = np.triu_indices(n=self.n_neurons, k=1)
         within_gen = corr[:self.n_neurons, :self.n_neurons][triu_idx]
@@ -256,6 +282,35 @@ class Visualize(Evaluate):
         ax.plot(within_gt, within_gen, marker, label=model, markersize=8)
         ax.set_xlabel('Real Correlation')
         ax.set_ylabel('Generated Correlation')
+        ax.legend()
+        return ax
+
+    def noise_corr(self, generated, model, ax=None, marker='.'):
+        """Plots the noise correlation between neurons of
+         the generated data vs. the groundtruth data.
+
+        Args:
+            generated (array): Generated spike data
+                (#repeats, #bins, #neurons)
+            model (str): The name of the model.
+            ax (object, optional): An existing axis object.
+                Defaults to None which creates a new axis.
+            marker (str): Defaults to '.'.
+        Returns:
+            object: Axis object.
+        """
+        if not ax:
+            ax = self.plot.init_subplot('Pairwise Noise Correlation')
+        corr = self.noise_correlation(generated)
+        triu_idx = np.triu_indices(n=self.n_neurons, k=1)
+        within_gen = corr[:self.n_neurons, :self.n_neurons][triu_idx]
+        within_gt = corr[self.n_neurons::, self.n_neurons::][triu_idx]
+        vmax = np.max([within_gen.max(), within_gt.max()])
+        vmin = np.max([within_gen.min(), within_gt.min()])
+        ax.plot([vmin-.1, vmax+.1], [vmin-.1, vmax+.1], 'black')
+        ax.plot(within_gt, within_gen, marker, label=model, markersize=8)
+        ax.set_xlabel('Real Noise Correlation')
+        ax.set_ylabel('Generated Noise Correlation')
         ax.legend()
         return ax
 
