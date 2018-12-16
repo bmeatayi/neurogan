@@ -4,7 +4,7 @@ from torch.nn.parameter import Parameter
 
 
 class GumbelSoftmaxBinary(nn.Module):
-    def __init__(self, n_unit, learnable_temperature=False, temperature=1, eps=1e-12):
+    def __init__(self, n_unit, gs_temp, learnable_temperature=False, eps=1e-12):
         """Binary Gumbel_Softmax relaxation module
 
         Reference:  Maddison et. al. (2016) "The concrete distribution: A continuous relaxation of discrete random
@@ -13,7 +13,7 @@ class GumbelSoftmaxBinary(nn.Module):
         Args:
             n_unit (int): Number of neurons
             learnable_temperature (bool): To learn temperature
-            temperature: Temperature value
+            gs_temp: Temperature value
             eps: Epsilon value for numerical stability
         """
         super(GumbelSoftmaxBinary, self).__init__()
@@ -21,9 +21,9 @@ class GumbelSoftmaxBinary(nn.Module):
         self.eps = eps
         self.learnable_temperature = learnable_temperature
         if learnable_temperature:
-            self.temperature = Parameter(torch.Tensor(self.n_unit).fill_(temperature))
+            self.temperature = Parameter(torch.Tensor(self.n_unit).fill_(gs_temp))
         else:
-            self.temperature = temperature
+            self.temperature = gs_temp
 
     def forward(self, logits):
         L = self.sample_logistic(logits.shape)
@@ -39,7 +39,7 @@ class GumbelSoftmaxBinary(nn.Module):
 if __name__ == '__main__':
     temperature = .5
     x = torch.ones((10, 10))*-1
-    gumbelsoftmax = GumbelSoftmaxBinary(n_unit=10, temperature=temperature)
+    gumbelsoftmax = GumbelSoftmaxBinary(n_unit=10, gs_temp=temperature)
     y = gumbelsoftmax(x)
     print(torch.mean(y, dim=0))
     print(y)
