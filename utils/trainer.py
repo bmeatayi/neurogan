@@ -24,7 +24,7 @@ class TrainerCGAN(object):
                  gan_mode='js',
                  lambda_gp=None,
                  grad_mode='gs',
-                 gs_temp = None
+                 gs_temp=None
                  ):
         r"""
         Trainer class for conditional GAN
@@ -49,10 +49,12 @@ class TrainerCGAN(object):
 
         assert gan_mode in ['js', 'wgan-gp', 'sn'], gan_mode + ' is not supported!'
         assert grad_mode in ['gs', 'rebar', 'reinforce'], grad_mode + ' is not supported!'
-        assert gan_mode == 'wgan-gp' and lambda_gp is not None, "lambda_gp is not given!"
+
+        if gan_mode is 'wgan-gp':
+            assert lambda_gp is not None, "lambda_gp is not given!"
 
         if grad_mode is 'gs':
-            assert gs_temp == None, 'gs_temp is not given!'
+            assert gs_temp is not None, 'gs_temp is not given!'
             self.gumbel_softmax = GumbelSoftmaxBinary(gs_temp=gs_temp)
         elif grad_mode is 'reinforce':
             self.bernoulli_sampler = torch.distributions.bernoulli.Bernoulli
