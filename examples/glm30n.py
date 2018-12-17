@@ -21,7 +21,7 @@ plt.ioff()
 spike_file = '..//dataset//GLM_2D_30n_shared_noise//data.npy'
 stim_file = '..//dataset//GLM_2D_30n_shared_noise//stim.npy'
 
-log_folder = 'cgan_results//SharedNoise_30N_run01_lam.1_temp.5//'
+log_folder = 'cgan_results//SharedNoise_30N_run05_lam.1_gs//'
 
 batch_size = 128
 N = 30
