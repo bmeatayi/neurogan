@@ -96,4 +96,4 @@ if __name__ == '__main__':
                  temp_anneal=args.temp_anneal
                  )
     print(generator.shn_layer.weight)
-    torch.save(args.log_file + 'discriminator.pt', discriminator)
+    torch.save(args.log_dir + 'discriminator.pt', discriminator)
