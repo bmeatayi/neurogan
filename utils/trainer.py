@@ -76,7 +76,8 @@ class TrainerCGAN(object):
     def train(self, generator, discriminator, train_loader, val_loader,
               lr=0.0002, b1=0.5, b2=0.999,
               log_interval=400, n_epochs=200,
-              n_disc_train=5):
+              n_disc_train=5,
+              temp_anneal=1):
         r"""
         train conditional GAN
 
@@ -91,6 +92,7 @@ class TrainerCGAN(object):
             log_interval (int): iteration intervals for logging results
             n_epochs  (int): number of total epochs
             n_disc_train (int): train discriminator n_disc_train times vs. 1 train step of generator
+            temp_anneal (float): annealing factor of Gumbel-Softmax temperature
 
         Returns:
             void
@@ -174,6 +176,11 @@ class TrainerCGAN(object):
                     self.log_result(generator, discriminator,
                                     batches_done,
                                     val_loader=val_loader)
+
+            # Temperature annealing
+            if self.grad_mode == 'gs':
+                self.gumbel_softmax.temperature *= temp_anneal
+
         self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
         # self.plot_loss_history()

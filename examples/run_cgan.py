@@ -38,6 +38,7 @@ if __name__ == '__main__':
                                                                     ", 'reinforce': REINFORCE, 'rebar':REBAR")
     parser.add_argument("--lambda_gp", type=float, default=.1, help="gradient penalty scale in wgan-gp")
     parser.add_argument("--gs_temp", type=float, default=.5, help="Gumbel-Softmax temperature")
+    parser.add_argument("--temp_anneal", type=float, default=1, help="Annealing factor for Gumbel-Softmax temperature")
     parser.add_argument("--lr", type=float, default=.0003, help="learning rate")
     parser.add_argument("--log_interval", type=int, default=10000, help="logging interval")
 
@@ -91,7 +92,8 @@ if __name__ == '__main__':
                  b1=.5, b2=0.999,
                  log_interval=args.log_interval,
                  n_epochs=args.n_epochs,
-                 n_disc_train=5
+                 n_disc_train=5,
+                 temp_anneal=args.temp_anneal
                  )
     print(generator.shn_layer.weight)
     torch.save(args.log_file + 'discriminator.pt', discriminator)

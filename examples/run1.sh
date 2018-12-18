@@ -29,6 +29,6 @@ cd /home/hpc/pn56ju/ga48zop2/neurogan/examples/
 
 #python glm30n.py
 
-python run_cgan.py --spike_file ..//dataset//GLM_2D_30n_shared_noise//data.npy --stim_file ..//dataset//GLM_2D_30n_shared_noise//stim.npy --log_dir cgan_results//SharedNoise_30N_run07_lam.1_gs//
+python run_cgan.py --spike_file ..//dataset//GLM_2D_30n_shared_noise//data.npy --stim_file ..//dataset//GLM_2D_30n_shared_noise//stim.npy --log_dir cgan_results//SharedNoise_30N_run01_lam.1_gs//
 
 
