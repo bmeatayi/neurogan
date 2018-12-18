@@ -43,6 +43,7 @@ class TrainerCGAN(object):
                                 'rebar': REBAR method
                                 'reinforce': REINFORCE method
             gs_temp (float): Gumbel-Softmax temperature
+            n_neuron (int): number of neurons
         """
         self.log_folder = log_folder
         self.optimizer_G = optimizer_g
@@ -50,7 +51,10 @@ class TrainerCGAN(object):
 
         assert gan_mode in ['js', 'wgan-gp', 'sn'], gan_mode + ' is not supported!'
         assert grad_mode in ['gs', 'rebar', 'reinforce'], grad_mode + ' is not supported!'
-        assert gan_mode == 'wgan-gp' and lambda_gp is not None, "lambda_gp is not given!"
+
+        if gan_mode == 'wgan-gp':
+            assert lambda_gp is not None, "lambda_gp is not given!"
+            self.lambda_gp = lambda_gp
 
         if grad_mode is 'gs':
             assert gs_temp is not None, 'gs_temp is not given!'
@@ -58,7 +62,7 @@ class TrainerCGAN(object):
             self.gumbel_softmax = GumbelSoftmaxBinary(n_unit=n_neuron, gs_temp=gs_temp)
         elif grad_mode is 'reinforce':
             self.bernoulli_sampler = torch.distributions.bernoulli.Bernoulli
-        self.lambda_gp = lambda_gp
+
         self.gan_mode = gan_mode
         self.grad_mode = grad_mode
 
@@ -76,6 +80,24 @@ class TrainerCGAN(object):
               lr=0.0002, b1=0.5, b2=0.999,
               log_interval=400, n_epochs=200,
               n_disc_train=5):
+        r"""
+        train conditional GAN
+
+        Args:
+            generator (nn.module): Generator
+            discriminator (nn.module): Discriminator
+            train_loader (dataloader): train dataloader
+            val_loader (dataloader): validation dataloader
+            lr (float): Adam optimizer learning rate
+            b1 (float): Adam optimizer beta1 parameter
+            b2 (float): Adam optimizer beta2 parameter
+            log_interval (int): iteration intervals for logging results
+            n_epochs  (int): number of total epochs
+            n_disc_train (int): train discriminator n_disc_train times vs. 1 train step of generator
+
+        Returns:
+            void
+        """
 
         self.logger.add_text('G-Architecture', repr(generator))
         self.logger.add_text('D-Architecture', repr(discriminator))
