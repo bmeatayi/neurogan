@@ -241,9 +241,10 @@ class TrainerCGAN(object):
 
         if self.grad_mode is 'reinforce':
             log_probability = self.sampler.log_prob(fake_samples)
-            d_log_probability = autograd.grad([log_probability], [fake_logits],
-                                              grad_outputs=torch.ones_like(log_probability))[0]
-            g_loss = g_loss.detach() * d_log_probability
+            # d_log_probability = autograd.grad([log_probability], [fake_logits],
+            #                                   grad_outputs=torch.ones_like(log_probability))[0]
+            # g_loss = g_loss.detach() * d_log_probability
+            g_loss = g_loss.detach() * log_probability
         elif self.grad_mode is 'rebar':
             pass
             # TODO: Implement REBAR
