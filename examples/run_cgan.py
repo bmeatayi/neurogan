@@ -18,7 +18,7 @@ from utils.cgan_dataset import GanDataset
 
 matplotlib.use('Agg')
 plt.ioff()
-# python run_cgan.py --spike_file ..//dataset//GLM_2D_30n_shared_noise//data.npy --stim_file ..//dataset//GLM_2D_30n_shared_noise//stim.npy --log_file cgan_results//SharedNoise_30N_run07_lam.1_gs//
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--spike_file", type=str, default='..//dataset//GLM_2D_30n_shared_noise//data.npy', help="path of spike file")
