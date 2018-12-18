@@ -3,13 +3,10 @@ from torch.nn import functional as F
 import torch.autograd as autograd
 import os
 import numpy as np
-import numpy.matlib
 from tensorboardX import SummaryWriter
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.backends.backend_pdf import PdfPages
 from utils.evaluation import Visualize
-import seaborn as sns
 from modules.gumbel_softmax_binary import GumbelSoftmaxBinary
 
 FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
@@ -24,8 +21,8 @@ class TrainerCGAN(object):
                  gan_mode='js',
                  lambda_gp=None,
                  grad_mode='gs',
-                 gs_temp = None,
-                 n_neuron= None
+                 gs_temp=None,
+                 n_neuron=None
                  ):
         r"""
         Trainer class for conditional GAN
@@ -101,6 +98,8 @@ class TrainerCGAN(object):
 
         self.logger.add_text('G-Architecture', repr(generator))
         self.logger.add_text('D-Architecture', repr(discriminator))
+        self.logger.add_text('GAN-mode', self.gan_mode)
+        self.logger.add_text('Grad-mode', self.grad_mode)
         self._reset_loss_history()
 
         if torch.cuda.is_available():
@@ -149,7 +148,6 @@ class TrainerCGAN(object):
                 z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
                 fake_logits = generator(z, stim)
                 pred_real = discriminator(real_sample, stim)
-
 
                 if self.gan_mode == 'wgan-gp':
                     pred_fake = discriminator(self._logit2sample(fake_logits), stim)
@@ -241,7 +239,10 @@ class TrainerCGAN(object):
                 batch_size = cnt.shape[0]
                 stim = stim.type(FloatTensor)
                 z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
-                fake_sample = generator.generate(z, stim)
+                fake_sample = self._logit2sample(generator(z, stim)) # generator.generate(z, stim)
+                if self.grad_mode == 'gs':
+                    fake_sample[fake_sample >= .5] = 1
+                    fake_sample[fake_sample < .5] = 0
                 temp_gen = torch.cat((temp_gen, fake_sample.detach().cpu()))
                 temp_real = torch.cat((temp_real, cnt.type(FloatTensor)))
             fake_data = torch.cat((fake_data, temp_gen.unsqueeze(0)))
@@ -352,6 +353,7 @@ class TrainerCGAN(object):
             # TODO: Implement Spectral Normalization
 
         if self.grad_mode is 'reinforce':
+            #d_log_prob = torch.autograd.grad([log_prob], [logits], grad_outputs=torch.ones_like(log_prob))[0]
             g_loss = g_loss.detach() * self.sampler.log_prob(fake_samples)
         elif self.grad_mode is 'rebar':
             pass
