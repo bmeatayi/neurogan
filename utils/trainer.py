@@ -24,7 +24,8 @@ class TrainerCGAN(object):
                  gan_mode='js',
                  lambda_gp=None,
                  grad_mode='gs',
-                 gs_temp=None
+                 gs_temp = None,
+                 n_neuron= None
                  ):
         r"""
         Trainer class for conditional GAN
@@ -49,13 +50,12 @@ class TrainerCGAN(object):
 
         assert gan_mode in ['js', 'wgan-gp', 'sn'], gan_mode + ' is not supported!'
         assert grad_mode in ['gs', 'rebar', 'reinforce'], grad_mode + ' is not supported!'
-
-        if gan_mode is 'wgan-gp':
-            assert lambda_gp is not None, "lambda_gp is not given!"
+        assert gan_mode == 'wgan-gp' and lambda_gp is not None, "lambda_gp is not given!"
 
         if grad_mode is 'gs':
             assert gs_temp is not None, 'gs_temp is not given!'
-            self.gumbel_softmax = GumbelSoftmaxBinary(gs_temp=gs_temp)
+            assert n_neuron is not None, 'n_unit is not given!'
+            self.gumbel_softmax = GumbelSoftmaxBinary(n_unit=n_neuron, gs_temp=gs_temp)
         elif grad_mode is 'reinforce':
             self.bernoulli_sampler = torch.distributions.bernoulli.Bernoulli
         self.lambda_gp = lambda_gp
@@ -75,8 +75,7 @@ class TrainerCGAN(object):
     def train(self, generator, discriminator, train_loader, val_loader,
               lr=0.0002, b1=0.5, b2=0.999,
               log_interval=400, n_epochs=200,
-              n_disc_train=5
-              ):
+              n_disc_train=5):
 
         self.logger.add_text('G-Architecture', repr(generator))
         self.logger.add_text('D-Architecture', repr(discriminator))
@@ -104,19 +103,17 @@ class TrainerCGAN(object):
                 fake_label = FloatTensor(batch_size, 1).fill_(0.0)
 
                 if i % n_disc_train == 0:
-                    # Train generator
+                    # Train Generator
                     optim_g.zero_grad()
                     z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
                     fake_logits = generator(z, stim)
-                    pred_fake = discriminator(self._logit2sample(fake_logits), stim)
+                    fake_samples = self._logit2sample(fake_logits)
+                    pred_fake = discriminator(fake_samples, stim)
 
-                    if self.gan_mode == 'wgan-gp':
-                        g_loss = -pred_fake.mean()
-                    elif self.gan_mode == 'js':
-                        g_loss = F.binary_cross_entropy_with_logits(inputs=pred_fake, target=real_label)
-                    elif self.gan_mode == 'sn':
-                        pass
-                        # TODO: Implement Spectral Normalization
+                    g_loss = self._compute_g_loss(pred_fake=pred_fake,
+                                                  fake_logits=fake_logits,
+                                                  fake_samples=fake_samples,
+                                                  real_labels=real_label)
 
                     g_loss.backward()
                     optim_g.step()
@@ -155,13 +152,11 @@ class TrainerCGAN(object):
                 batches_done = epoch * len(train_loader) + i
                 if batches_done % log_interval == 0:
                     self.log_result(generator, discriminator,
-                                    batches_done, tr_loader=train_loader,
+                                    batches_done,
                                     val_loader=val_loader)
-        self.log_result(generator, discriminator,
-                        batches_done, tr_loader=train_loader,
-                        val_loader=val_loader)
+        self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
-        self.plot_loss_history()
+        # self.plot_loss_history()
         self.logger.export_scalars_to_json(self.log_folder + "./all_scalars.json")
         self.logger.close()
         torch.save(generator, self.log_folder + 'generator.pt')
@@ -178,8 +173,8 @@ class TrainerCGAN(object):
         if self.grad_mode is 'gs':
             return self.gumbel_softmax(fake_logits)
         elif self.grad_mode is 'reinforce':
-            sampler = self.bernoulli_sampler(logits=fake_logits)
-            return sampler.sample()
+            self.sampler = self.bernoulli_sampler(logits=fake_logits)
+            return self.sampler.sample()
         elif self.grad_mode is 'rebar':
             return None
             # TODO: IMPLEMENT REBAR
@@ -233,7 +228,7 @@ class TrainerCGAN(object):
         fake_data = np.squeeze(fake_data.numpy())
         real_data = np.squeeze(real_data.detach().cpu().numpy())
 
-        pdf = PdfPages(self.out_folder + 'iter_' + str(batches_done) + '.pdf')
+        pdf = PdfPages(self.log_folder + 'iter_' + str(batches_done) + '.pdf')
         if fake_data.ndim == 2:
             fake_data = fake_data[:, :, np.newaxis]
             real_data = real_data[:, :, np.newaxis]
@@ -243,13 +238,35 @@ class TrainerCGAN(object):
         fig, ax = plt.subplots(figsize=(5, 5))
         viz.mean(fake_data, '')
         pdf.savefig(bbox_inches='tight')
+
         viz.std(fake_data, '')
         pdf.savefig(bbox_inches='tight')
-        viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
-        pdf.savefig(bbox_inches='tight')
+
         viz.corr(fake_data, model='')
         pdf.savefig(bbox_inches='tight')
 
+        viz.noise_corr(fake_data, model='')
+        pdf.savefig(bbox_inches='tight')
+
+        viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
+        pdf.savefig(bbox_inches='tight')
+
+        real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
+        real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
+        real_w_shared_noise = -.5
+
+        gen_glm_filters = generator.GLM.weight.detach().cpu().numpy().reshape(real_glm_filters.shape)
+        gen_glm_biases = generator.GLM.bias.detach().cpu().numpy()
+        gen_w_shared_noise = generator.shn_layer.weight.detach().cpu().numpy()
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        ax[0].set_title('GLM filter parameters')
+        ax[0].plot([-1, 2], [-1, 2], 'black')
+        ax[0].plot(real_glm_filters.flatten(), np.flip(gen_glm_filters, axis=(1, 2)).flatten(), '.')
+        ax[0].plot(real_w_shared_noise, gen_w_shared_noise, '*', markersize=5, label='Shared noise scale')
+
+        ax[1].set_title('GLM biases')
+        ax[1].plot([-6, -3], [-6, -3], 'black')
+        ax[1].plot(real_glm_biases, gen_glm_biases, '.')
 
         # for i, spikes in enumerate(fake_data.transpose(2, 0, 1)):
         #     fig, ax = plt.subplots(2, 2, figsize=(20, 5))
@@ -287,20 +304,34 @@ class TrainerCGAN(object):
         pdf.close()
         plt.close()
 
-        GLM_filters = generator.GLM.weight.detach().cpu().numpy()
-        N = GLM_filters.shape[0]
-        fig, ax = plt.subplots(1, N, figsize=(40, 5))
-        for i, f in enumerate(GLM_filters):
-            ax[i].imshow(np.flip(f.reshape((30, 40)), axis=(0, 1)))
-            ax[i].set_xlabel('x')
-            ax[i].set_ylabel('t')
-            ax[i].set_xticks([])
-            ax[i].set_yticks([])
-            ax[i].set_title('Neuron' + str(i))
-
-        # ax[0].imshow(np.flip(GLM_filters[0, :].reshape((20, 10)), axis=(0, 1)))
-        # ax[1].imshow(np.flip(GLM_filters[1, :].reshape((20, 10)), axis=(0, 1)))
-        plt.savefig(self.out_folder + 'filt %i.jpg' % batches_done, dpi=120)
+        # GLM_filters = generator.GLM.weight.detach().cpu().numpy()
+        # N = GLM_filters.shape[0]
+        # fig, ax = plt.subplots(1, N, figsize=(40, 5))
+        # for i, f in enumerate(GLM_filters):
+        #     ax[i].imshow(np.flip(f.reshape((30, 40)), axis=(0, 1)))
+        #     ax[i].set_xlabel('x')
+        #     ax[i].set_ylabel('t')
+        #     ax[i].set_xticks([])
+        #     ax[i].set_yticks([])
+        #     ax[i].set_title('Neuron' + str(i))
+        #
+        # plt.savefig(self.log_folder + 'filt %i.jpg' % batches_done, dpi=120)
         plt.close()
         generator.train()
         discriminator.train()
+
+    def _compute_g_loss(self, pred_fake, fake_logits, fake_samples, real_labels):
+        if self.gan_mode == 'wgan-gp':
+            g_loss = -pred_fake.mean()
+        elif self.gan_mode == 'js':
+            g_loss = F.binary_cross_entropy_with_logits(inputs=pred_fake, target=real_labels)
+        elif self.gan_mode == 'sn':
+            pass
+            # TODO: Implement Spectral Normalization
+
+        if self.grad_mode is 'reinforce':
+            g_loss = g_loss.detach() * self.sampler.log_prob(fake_samples)
+        elif self.grad_mode is 'rebar':
+            pass
+            # TODO: Implement REBAR
+        return g_loss.sum()

@@ -21,7 +21,7 @@ plt.ioff()
 spike_file = '..//dataset//GLM_2D_30n_shared_noise//data.npy'
 stim_file = '..//dataset//GLM_2D_30n_shared_noise//stim.npy'
 
-log_folder = 'cgan_results//SharedNoise_30N_run08_gs_temp1//'
+log_folder = 'cgan_results//SharedNoise_30N_run05_lam.1_gs//'
 
 batch_size = 128
 N = 30
@@ -51,7 +51,7 @@ solver = TrainerCGAN(optimizer_g=torch.optim.Adam,
                      gan_mode='wgan-gp',
                      lambda_gp=.1,
                      grad_mode='gs',
-                     gs_temp=1,
+                     gs_temp=.5,
                      n_neuron=N)
 
 solver.train(generator=generator, discriminator=discriminator,
