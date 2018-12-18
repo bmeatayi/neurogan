@@ -58,7 +58,7 @@ class TrainerCGAN(object):
             assert n_neuron is not None, 'n_unit is not given!'
             self.gumbel_softmax = GumbelSoftmaxBinary(n_unit=n_neuron, gs_temp=gs_temp)
         elif grad_mode is 'reinforce':
-            self.bernoulli_sampler = torch.distributions.bernoulli.Bernoulli
+            self.bernoulli_func = torch.distributions.bernoulli.Bernoulli
 
         self.gan_mode = gan_mode
         self.grad_mode = grad_mode
@@ -193,7 +193,7 @@ class TrainerCGAN(object):
         if self.grad_mode is 'gs':
             return self.gumbel_softmax(fake_logits)
         elif self.grad_mode is 'reinforce':
-            self.sampler = self.bernoulli_sampler(logits=fake_logits)
+            self.sampler = self.bernoulli_func(logits=fake_logits)
             return self.sampler.sample()
         elif self.grad_mode is 'rebar':
             return None
@@ -353,8 +353,10 @@ class TrainerCGAN(object):
             # TODO: Implement Spectral Normalization
 
         if self.grad_mode is 'reinforce':
-            #d_log_prob = torch.autograd.grad([log_prob], [logits], grad_outputs=torch.ones_like(log_prob))[0]
-            g_loss = g_loss.detach() * self.sampler.log_prob(fake_samples)
+            log_probability = self.sampler.log_prob(fake_samples)
+            d_log_probability = autograd.grad([log_probability], [fake_logits],
+                                              grad_outputs=torch.ones_like(log_probability))[0]
+            g_loss = g_loss.detach() * d_log_probability
         elif self.grad_mode is 'rebar':
             pass
             # TODO: Implement REBAR
