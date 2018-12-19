@@ -62,4 +62,4 @@ solver.train(generator=generator, discriminator=discriminator,
              )
 
 print(generator.shn_layer.weight)
-torch.save(log_folder + 'discriminator.pt', discriminator)
+torch.save(discriminator, log_folder + 'discriminator.pt')
