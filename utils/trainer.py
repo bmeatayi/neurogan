@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from utils.evaluation import Visualize
 from modules.gumbel_softmax_binary import GumbelSoftmaxBinary
+from utils.plot_props import PlotProps
 
 FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
@@ -183,7 +184,7 @@ class TrainerCGAN(object):
 
         self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
-        # self.plot_loss_history()
+        self.plot_loss_history()
         self.logger.export_scalars_to_json(self.log_folder + "./all_scalars.json")
         self.logger.close()
         torch.save(generator, self.log_folder + 'generator.pt')
@@ -371,3 +372,17 @@ class TrainerCGAN(object):
         generator.train()
         discriminator.train()
 
+    def plot_loss_history(self):
+        plotprop = PlotProps()
+        fig = plotprop.init_figure(figsize=(14, 7))
+        ax = plotprop.init_subplot(title='Loss history',
+                                   tot_tup=(1, 1), sp_tup=(0, 0),
+                                   xlabel='Iteration', ylabel='Value')
+
+        ax.plot(np.arange(0, len(self.d_loss_history)), self.d_loss_history,
+                linewidth=2.5, label='Discriminator loss')
+        ax.plot(np.linspace(0, len(self.d_loss_history), len(self.g_loss_history)),
+                self.g_loss_history, linewidth=2.5, label='Generator loss')
+        plotprop.legend()
+        plt.savefig(self.log_folder + 'loss_history.jpg', dpi=200)
+        plt.close()
