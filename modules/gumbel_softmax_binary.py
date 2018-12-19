@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
+# from torch.distributions.transformed_distribution import TransformedDistribution
+# from torch.distributions.uniform import Uniform
+# from torch.distributions.transforms import SigmoidTransform, AffineTransform
 
 
 class GumbelSoftmaxBinary(nn.Module):
@@ -20,6 +23,10 @@ class GumbelSoftmaxBinary(nn.Module):
         self.n_unit = n_unit
         self.eps = eps
 
+        # base_distribution = Uniform(0, 1)
+        # transforms = [SigmoidTransform().inv, AffineTransform(loc=0, scale=1)]
+        # self.logistic_distribution = TransformedDistribution(base_distribution, transforms)
+
         if learnable_temperature:
             self.temperature = Parameter(torch.Tensor(self.n_unit).fill_(gs_temp))
         else:
@@ -31,15 +38,21 @@ class GumbelSoftmaxBinary(nn.Module):
 
     def sample_logistic(self, shape):
         U = torch.rand(shape)
+        # l = self.logistic_distribution.sample(shape)
         if torch.cuda.is_available():
             U.cuda()
+            # l.cuda()
         return torch.log(U + self.eps) - torch.log(1 - U)
 
 
 if __name__ == '__main__':
-    temperature = .5
-    x = torch.ones((10, 10))*-1
+    temperature = .1
+    x = torch.ones((1000, 10))*.1
+    x = torch.log(x/(1-x))
+
     gumbelsoftmax = GumbelSoftmaxBinary(n_unit=10, gs_temp=temperature)
     y = gumbelsoftmax(x)
+    y[y >= .5] = 1
+    y[y <= .5] = 0
     print(torch.mean(y, dim=0))
-    print(y)
+    # print(y)
