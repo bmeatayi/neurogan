@@ -76,7 +76,8 @@ class TrainerCGAN(object):
     def train(self, generator, discriminator, train_loader, val_loader,
               lr=0.0002, b1=0.5, b2=0.999,
               log_interval=400, n_epochs=200,
-              n_disc_train=5):
+              n_disc_train=5,
+              temp_anneal=1):
         r"""
         train conditional GAN
 
@@ -91,6 +92,7 @@ class TrainerCGAN(object):
             log_interval (int): iteration intervals for logging results
             n_epochs  (int): number of total epochs
             n_disc_train (int): train discriminator n_disc_train times vs. 1 train step of generator
+            temp_anneal (float): annealing factor of Gumbel-Softmax temperature
 
         Returns:
             void
@@ -174,6 +176,11 @@ class TrainerCGAN(object):
                     self.log_result(generator, discriminator,
                                     batches_done,
                                     val_loader=val_loader)
+
+            # Temperature annealing
+            if self.grad_mode == 'gs':
+                self.gumbel_softmax.temperature *= temp_anneal
+
         self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
         # self.plot_loss_history()
@@ -223,6 +230,26 @@ class TrainerCGAN(object):
                                     create_graph=True, only_inputs=True)[0]
         return ((grads.norm(2, dim=1) - 1) ** 2).mean()
 
+    def _compute_g_loss(self, pred_fake, fake_logits, fake_samples, real_labels):
+        if self.gan_mode == 'wgan-gp':
+            g_loss = -pred_fake.mean()
+        elif self.gan_mode == 'js':
+            g_loss = F.binary_cross_entropy_with_logits(inputs=pred_fake, target=real_labels)
+        elif self.gan_mode == 'sn':
+            pass
+            # TODO: Implement Spectral Normalization
+
+        if self.grad_mode is 'reinforce':
+            log_probability = self.sampler.log_prob(fake_samples)
+            # d_log_probability = autograd.grad([log_probability], [fake_logits],
+            #                                   grad_outputs=torch.ones_like(log_probability))[0]
+            # g_loss = g_loss.detach() * d_log_probability
+            g_loss = g_loss.detach() * log_probability
+        elif self.grad_mode is 'rebar':
+            pass
+            # TODO: Implement REBAR
+        return g_loss.sum()
+
     def log_result(self, generator, discriminator, batches_done, val_loader, n_sample=200):
 
         generator.eval()
@@ -271,9 +298,6 @@ class TrainerCGAN(object):
         viz.noise_corr(fake_data, model='')
         pdf.savefig(bbox_inches='tight')
 
-        viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
-        pdf.savefig(bbox_inches='tight')
-
         real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
         real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
         real_w_shared_noise = -.5
@@ -290,6 +314,10 @@ class TrainerCGAN(object):
         ax[1].set_title('GLM biases')
         ax[1].plot([-6, -3], [-6, -3], 'black')
         ax[1].plot(real_glm_biases, gen_glm_biases, '.')
+        pdf.savefig(bbox_inches='tight')
+
+        viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
+        pdf.savefig(bbox_inches='tight')
 
         # for i, spikes in enumerate(fake_data.transpose(2, 0, 1)):
         #     fig, ax = plt.subplots(2, 2, figsize=(20, 5))
@@ -343,21 +371,3 @@ class TrainerCGAN(object):
         generator.train()
         discriminator.train()
 
-    def _compute_g_loss(self, pred_fake, fake_logits, fake_samples, real_labels):
-        if self.gan_mode == 'wgan-gp':
-            g_loss = -pred_fake.mean()
-        elif self.gan_mode == 'js':
-            g_loss = F.binary_cross_entropy_with_logits(inputs=pred_fake, target=real_labels)
-        elif self.gan_mode == 'sn':
-            pass
-            # TODO: Implement Spectral Normalization
-
-        if self.grad_mode is 'reinforce':
-            log_probability = self.sampler.log_prob(fake_samples)
-            d_log_probability = autograd.grad([log_probability], [fake_logits],
-                                              grad_outputs=torch.ones_like(log_probability))[0]
-            g_loss = g_loss.detach() * d_log_probability
-        elif self.grad_mode is 'rebar':
-            pass
-            # TODO: Implement REBAR
-        return g_loss.sum()

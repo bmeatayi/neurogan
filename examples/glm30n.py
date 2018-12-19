@@ -21,7 +21,7 @@ plt.ioff()
 spike_file = '..//dataset//GLM_2D_30n_shared_noise//data.npy'
 stim_file = '..//dataset//GLM_2D_30n_shared_noise//stim.npy'
 
-log_folder = 'cgan_results//SharedNoise_30N_run05_lam.1_gs//'
+log_folder = 'cgan_results//Reinforce_30N_run01_lam.1//'
 
 batch_size = 128
 N = 30
@@ -50,15 +50,16 @@ solver = TrainerCGAN(optimizer_g=torch.optim.Adam,
                      log_folder=log_folder,
                      gan_mode='wgan-gp',
                      lambda_gp=.1,
-                     grad_mode='gs',
-                     gs_temp=.5,
+                     grad_mode='reinforce',
+                     gs_temp=None,
                      n_neuron=N)
 
 solver.train(generator=generator, discriminator=discriminator,
              train_loader=train_dataloader, val_loader=val_dataloader,
-             lr=0.0003, b1=.5, b2=0.999,
-             log_interval=10000, n_epochs=1500,
+             lr=0.0001, b1=.5, b2=0.999,
+             log_interval=10000, n_epochs=2000,
              n_disc_train=5
              )
 
 print(generator.shn_layer.weight)
+torch.save(log_folder + 'discriminator.pt', discriminator)
