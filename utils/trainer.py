@@ -235,7 +235,7 @@ class TrainerCGAN(object):
         if self.gan_mode == 'wgan-gp':
             g_loss = -pred_fake.mean()
         elif self.gan_mode == 'js':
-            g_loss = F.binary_cross_entropy_with_logits(inputs=pred_fake, target=real_labels)
+            g_loss = F.binary_cross_entropy_with_logits(input=pred_fake, target=real_labels)
         elif self.gan_mode == 'sn':
             pass
             # TODO: Implement Spectral Normalization
