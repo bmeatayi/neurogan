@@ -198,14 +198,11 @@ class TrainerCGAN(object):
         Returns:
             sample (torch.tensor): binary or relaxed samples
         """
-        if self.grad_mode is 'gs':
+        if self.grad_mode == 'gs':
             return self.gumbel_softmax(fake_logits)
-        elif self.grad_mode is 'reinforce':
+        elif self.grad_mode == 'reinforce' or self.grad_mode == 'rebar':
             self.sampler = self.bernoulli_func(logits=fake_logits)
             return self.sampler.sample()
-        elif self.grad_mode is 'rebar':
-            return None
-            # TODO: IMPLEMENT REBAR
 
     def compute_gp(self, discriminator, real_sample, fake_sample, stim):
         r"""
