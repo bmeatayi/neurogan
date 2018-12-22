@@ -23,7 +23,8 @@ class TrainerCGAN(object):
                  lambda_gp=None,
                  grad_mode='gs',
                  gs_temp=None,
-                 n_neuron=None
+                 n_neuron=None,
+                 gen_loss_mode='bce'
                  ):
         r"""
         Trainer class for conditional GAN
@@ -42,6 +43,7 @@ class TrainerCGAN(object):
                                 'reinforce': REINFORCE method
             gs_temp (float): Gumbel-Softmax temperature
             n_neuron (int): number of neurons
+            gen_loss_mode (str): Generator loss function (options: 'bce' for binary cross entropy, 'hinge')
         """
         self.log_folder = log_folder
         self.optimizer_G = optimizer_g
@@ -49,6 +51,7 @@ class TrainerCGAN(object):
 
         assert gan_mode in ['js', 'wgan-gp', 'sn'], gan_mode + ' is not supported!'
         assert grad_mode in ['gs', 'rebar', 'reinforce'], grad_mode + ' is not supported!'
+        assert gen_loss_mode in ['bce', 'hinge'], gen_loss_mode + 'is not supported!'
 
         if gan_mode == 'wgan-gp':
             assert lambda_gp is not None, "lambda_gp is not given!"
@@ -63,6 +66,7 @@ class TrainerCGAN(object):
 
         self.gan_mode = gan_mode
         self.grad_mode = grad_mode
+        self.gen_loss_mode = gen_loss_mode
 
         self.d_loss_history = []
         self.g_loss_history = []
@@ -135,9 +139,7 @@ class TrainerCGAN(object):
                     pred_fake = discriminator(fake_samples, stim)
 
                     g_loss = self._compute_g_loss(pred_fake=pred_fake,
-                                                  fake_logits=fake_logits,
-                                                  fake_samples=fake_samples,
-                                                  real_labels=real_label)
+                                                  fake_samples=fake_samples)
 
                     g_loss.backward()
                     optim_g.step()
@@ -156,14 +158,11 @@ class TrainerCGAN(object):
                     pred_fake = discriminator(self._logit2sample(fake_logits), stim)
                     grad_penalty = self.compute_gp(discriminator, real_sample, fake_logits, stim)
                     d_loss = torch.mean(pred_fake) - torch.mean(pred_real) + self.lambda_gp * grad_penalty
-                elif self.gan_mode == 'js':
+                elif self.gan_mode == 'js' or self.gan_mode == 'sn':
                     pred_fake = discriminator(self._logit2sample(fake_logits), stim)
                     d_real_loss = F.binary_cross_entropy_with_logits(pred_real, real_label)
                     d_fake_loss = F.binary_cross_entropy_with_logits(pred_fake, fake_label)
                     d_loss = (d_real_loss + d_fake_loss) / 2
-                elif self.gan_mode == 'sn':
-                    pass
-                    # TODO: Implement spectral normalization objective function
 
                 d_loss.backward()
                 optim_d.step()
@@ -232,25 +231,32 @@ class TrainerCGAN(object):
                                     create_graph=True, only_inputs=True)[0]
         return ((grads.norm(2, dim=1) - 1) ** 2).mean()
 
-    def _compute_g_loss(self, pred_fake, fake_logits, fake_samples, real_labels):
-        if self.gan_mode == 'wgan-gp':
-            g_loss = -pred_fake.mean()
-        elif self.gan_mode == 'js':
-            g_loss = F.binary_cross_entropy_with_logits(input=pred_fake, target=real_labels)
-        elif self.gan_mode == 'sn':
-            pass
-            # TODO: Implement Spectral Normalization
+    def _compute_g_loss(self, pred_fake, fake_samples):
+        r"""
+        Computes loss for the generator
+        Args:
+            pred_fake (torch.tensor): output of the discriminator (logit)
+            fake_samples (torch.tensor): generated samples by the generator (discretized or relaxed version)
 
-        if self.grad_mode is 'reinforce':
+        Returns:
+            g_loss (torch.tensor): loss value
+        """
+        if self.gen_loss_mode == 'bce':
+            g_loss = -pred_fake.mean()
+        elif self.gen_loss_mode == 'hinge':
+            pass
+            # TODO: Implement hinge loss
+
+        if self.grad_mode == 'reinforce':
             log_probability = self.sampler.log_prob(fake_samples)
             # d_log_probability = autograd.grad([log_probability], [fake_logits],
             #                                   grad_outputs=torch.ones_like(log_probability))[0]
             # g_loss = g_loss.detach() * d_log_probability
-            g_loss = g_loss.detach() * log_probability
+            g_loss = (g_loss.detach() * log_probability).mean()
         elif self.grad_mode is 'rebar':
             pass
             # TODO: Implement REBAR
-        return g_loss.sum()
+        return g_loss
 
     def log_result(self, generator, discriminator, batches_done, val_loader, n_sample=200):
 

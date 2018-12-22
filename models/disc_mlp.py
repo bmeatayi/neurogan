@@ -14,7 +14,7 @@ class Discriminator(nn.Module):
     def __init__(self, sp_dim=(1, 1), stim_dim=(1, 1),
                  n_units=[128, 512, 128],
                  mid_act_func=nn.LeakyReLU(0.2, inplace=True),
-                 p_drop=None):
+                 p_drop=None, spectral_norm=False):
         r"""
         Discriminator with multilayer perceptron architecture
         Args:
@@ -23,6 +23,7 @@ class Discriminator(nn.Module):
             n_units (list): list of number of units in each layer
             mid_act_func (torch.nn.functional): activation function in the middle layers
             p_drop (float): probabilty of dropout between 0 and 1 (None for no dropout)
+            spectral_norm (bool): Apply spectral normalization on each layer
         """
         super(Discriminator, self).__init__()
 
@@ -33,14 +34,27 @@ class Discriminator(nn.Module):
         self.fcin_dim = np.prod(sp_dim)
 
         dense_layers = OrderedDict()
-        dense_layers['fcin'] = nn.Linear(self.fcin_dim+self.stim_dim, n_units[0])
+        if spectral_norm:
+            dense_layers['fcin'] = nn.utils.spectral_norm(nn.Linear(self.fcin_dim+self.stim_dim, n_units[0]))
+        else:
+            dense_layers['fcin'] = nn.Linear(self.fcin_dim + self.stim_dim, n_units[0])
+
         dense_layers['act0'] = mid_act_func
         for i in range(1, len(n_units)):
-            dense_layers['fc' + str(i)] = nn.Linear(n_units[i-1], n_units[i])
+            if spectral_norm:
+                dense_layers['fc' + str(i)] = nn.utils.spectral_norm(nn.Linear(n_units[i - 1], n_units[i]))
+            else:
+                dense_layers['fc' + str(i)] = nn.Linear(n_units[i-1], n_units[i])
+
             if p_drop is not None:
                 dense_layers['dropout' + str(i)] = nn.Dropout(p_drop)
+
             dense_layers['act' + str(i)] = mid_act_func
-        dense_layers['fcout'] = nn.Linear(n_units[-1], 1)
+
+        if spectral_norm:
+            dense_layers['fcout'] = nn.utils.spectral_norm(nn.Linear(n_units[-1], 1))
+        else:
+            dense_layers['fcout'] = nn.Linear(n_units[-1], 1)
 
         self.all_layers = nn.Sequential(dense_layers)
         print(self)
