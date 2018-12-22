@@ -188,6 +188,7 @@ class TrainerCGAN(object):
         self.logger.export_scalars_to_json(self.log_folder + "./all_scalars.json")
         self.logger.close()
         torch.save(generator, self.log_folder + 'generator.pt')
+        torch.save(discriminator, self.log_folder + 'discriminator.pt')
 
     def _logit2sample(self, fake_logits):
         r"""
