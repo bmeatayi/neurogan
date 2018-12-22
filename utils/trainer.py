@@ -263,12 +263,12 @@ class TrainerCGAN(object):
         generator.eval()
         discriminator.eval()
 
-        fake_data = torch.zeros([0, 0, 0, 0])
-        real_data = torch.zeros([0, 0, 0, 0])
+        fake_data = torch.zeros([0, 970, generator.n_t, generator.n_cell])
+        real_data = torch.zeros([0, 970, generator.n_t, generator.n_cell])
 
         for j in range(n_sample):
-            temp_gen = torch.zeros([0, 0, 0])
-            temp_real = torch.zeros([0, 0, 0])
+            temp_gen = torch.zeros([0, generator.n_t, generator.n_cell])
+            temp_real = torch.zeros([0, generator.n_t, generator.n_cell])
             for i, inputs in enumerate(val_loader):
                 cnt, stim = inputs
                 batch_size = cnt.shape[0]
