@@ -21,44 +21,48 @@ plt.ioff()
 spike_file = '..//dataset//GLM_2D_30n_shared_noise//data.npy'
 stim_file = '..//dataset//GLM_2D_30n_shared_noise//stim.npy'
 
-log_folder = 'cgan_results//Reinforce_30N_run02_lam.1_lr5e-6//'
+log_folder = 'cgan_results//SpN_gs_10N_run13_lr5e-4_anneal.9995//'
 
 batch_size = 128
 N = 30
+nt = 30
+nx = 40
 
 train_dataset = GanDataset(spike_file=spike_file, stim_file=stim_file,
-                           stim_win_len=30, cnt_win_len=0, n_split=1, st_end=(0, 13000))
+                           stim_win_len=nt, cnt_win_len=0, n_split=1, st_end=(0, 13000))
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
 val_dataset = GanDataset(spike_file=spike_file, stim_file=stim_file,
-                         stim_win_len=30, cnt_win_len=0, n_split=1, st_end=(13000, 13999))
+                         stim_win_len=nt, cnt_win_len=0, n_split=1, st_end=(13000, 13999))
 
 val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-generator = GeneratorGLM(latent_dim=1, stim_shape=(30, 40),
+generator = GeneratorGLM(latent_dim=1, stim_shape=(nt, nx),
                          out_shape=(1, N),
                          sampler=torch.distributions.bernoulli.Bernoulli)
 
-discriminator = Discriminator(sp_dim=(1, N), stim_dim=(30, 40),
+discriminator = Discriminator(sp_dim=(1, N), stim_dim=(nt, nx),
                               n_units=[128, 256, 512, 256, 128],
                               mid_act_func=nn.LeakyReLU(0.2, inplace=True),
-                              p_drop=None)
+                              p_drop=None,
+                              spectral_norm=True)
 
 solver = TrainerCGAN(optimizer_g=torch.optim.Adam,
                      optimizer_d=torch.optim.Adam,
                      log_folder=log_folder,
-                     gan_mode='wgan-gp',
-                     lambda_gp=.1,
-                     grad_mode='reinforce',
-                     gs_temp=None,
+                     gan_mode='sn',
+                     lambda_gp=None,
+                     grad_mode='gs',
+                     gs_temp=1,
                      n_neuron=N)
 
 solver.train(generator=generator, discriminator=discriminator,
              train_loader=train_dataloader, val_loader=val_dataloader,
-             lr=5e-6, b1=.5, b2=0.999,
-             log_interval=40000, n_epochs=4000,
-             n_disc_train=5
+             lr=1e-3, b1=.9, b2=0.999,
+             log_interval=10000, n_epochs=3500,
+             n_disc_train=5,
+             temp_anneal=.9995
              )
 
 print(generator.shn_layer.weight)
