@@ -17,7 +17,7 @@
 
 #SBATCH --export=NONE
 
-#SBATCH --time=02:30:00
+#SBATCH --time=05:00:00
 
 source /etc/profile.d/modules.sh
 
