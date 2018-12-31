@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from utils.evaluation import Visualize
 from modules.gumbel_softmax_binary import GumbelSoftmaxBinary
+from utils.rebar import Rebar
 from utils.plot_props import PlotProps
 
 FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
@@ -57,11 +58,14 @@ class TrainerCGAN(object):
             assert lambda_gp is not None, "lambda_gp is not given!"
             self.lambda_gp = lambda_gp
 
-        if grad_mode is 'gs':
+        if grad_mode == 'gs':
             assert gs_temp is not None, 'gs_temp is not given!'
             assert n_neuron is not None, 'n_unit is not given!'
             self.gumbel_softmax = GumbelSoftmaxBinary(n_unit=n_neuron, gs_temp=gs_temp)
-        elif grad_mode is 'reinforce':
+        elif grad_mode == 'reinforce':
+            self.bernoulli_func = torch.distributions.bernoulli.Bernoulli
+        elif grad_mode == 'rebar':
+            self.rebar_estimator = Rebar()
             self.bernoulli_func = torch.distributions.bernoulli.Bernoulli
 
         self.gan_mode = gan_mode
@@ -114,7 +118,7 @@ class TrainerCGAN(object):
             discriminator.cuda()
 
         optim_g = self.optimizer_G(generator.parameters(), lr=lr, betas=(b1, b2))
-        optim_d = self.optimizer_G(discriminator.parameters(), lr=lr, betas=(b1, b2))
+        optim_d = self.optimizer_D(discriminator.parameters(), lr=lr, betas=(b1, b2))
 
         self.logger.add_text('G-optim', repr(optim_g))
         self.logger.add_text('D-optim', repr(optim_d))
@@ -133,20 +137,33 @@ class TrainerCGAN(object):
                 if i % n_disc_train == 0:
                     # Train Generator
                     optim_g.zero_grad()
+                    discriminator.eval()
                     z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
                     fake_logits = generator(z, stim)
-                    fake_samples = self._logit2sample(fake_logits)
-                    pred_fake = discriminator(fake_samples, stim)
+                    if self.grad_mode == 'rebar':
+                        g_loss = self.rebar_estimator.step(logits=fake_logits,
+                                                           discriminator=discriminator,
+                                                           stim=stim)
+                    else:
+                        fake_samples = self._logit2sample(fake_logits)
+                        pred_fake = discriminator(fake_samples, stim)
 
-                    g_loss = self._compute_g_loss(pred_fake=pred_fake,
-                                                  fake_samples=fake_samples)
+                        g_loss = self._compute_g_loss(fake_logits=fake_logits,
+                                                      pred_fake=pred_fake,
+                                                      fake_samples=fake_samples)
+                        if self.grad_mode == 'reinforce':
+                            fake_logits.backward(g_loss)
+                            g_loss = g_loss.mean()
+                        else:
+                            g_loss.backward()
+                        g_loss = g_loss.data.cpu().numpy()
 
-                    g_loss.backward()
                     optim_g.step()
-                    g_loss = g_loss.data.cpu().numpy()
+
                     self.g_loss_history.append(g_loss)
 
                 # Train discriminator
+                discriminator.train()
                 optim_d.zero_grad()
                 optim_g.zero_grad()
 
@@ -228,7 +245,7 @@ class TrainerCGAN(object):
                                     create_graph=True, only_inputs=True)[0]
         return ((grads.norm(2, dim=1) - 1) ** 2).mean()
 
-    def _compute_g_loss(self, pred_fake, fake_samples):
+    def _compute_g_loss(self, fake_logits, pred_fake, fake_samples):
         r"""
         Computes loss for the generator
         Args:
@@ -246,10 +263,11 @@ class TrainerCGAN(object):
 
         if self.grad_mode == 'reinforce':
             log_probability = self.sampler.log_prob(fake_samples)
-            # d_log_probability = autograd.grad([log_probability], [fake_logits],
-            #                                   grad_outputs=torch.ones_like(log_probability))[0]
-            # g_loss = g_loss.detach() * d_log_probability
-            g_loss = (g_loss.detach() * log_probability).mean()
+            d_log_probability = autograd.grad([log_probability], [fake_logits],
+                                              grad_outputs=torch.ones_like(log_probability))[0]
+            g_loss = g_loss.detach() * d_log_probability.detach()
+
+            # g_loss = (g_loss.detach() * log_probability).mean()
         elif self.grad_mode is 'rebar':
             pass
             # TODO: Implement REBAR
@@ -271,7 +289,7 @@ class TrainerCGAN(object):
                 batch_size = cnt.shape[0]
                 stim = stim.type(FloatTensor)
                 z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
-                fake_sample = self._logit2sample(generator(z, stim)) # generator.generate(z, stim)
+                fake_sample = self._logit2sample(generator(z, stim))
                 if self.grad_mode == 'gs':
                     fake_sample[fake_sample >= .5] = 1
                     fake_sample[fake_sample < .5] = 0
