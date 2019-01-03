@@ -3,8 +3,8 @@ import numpy as np
 
 
 class Rebar:
-    def __init__(self, hp_lr=1e-4):
-        self.temp = torch.tensor([.1], requires_grad=False)
+    def __init__(self, hp_lr=1e-5):
+        self.temp = torch.tensor([1.], requires_grad=True)
         self.eta = torch.tensor([1.], requires_grad=True)
         self.hp_optim = torch.optim.Adam([self.temp, self.eta], lr=hp_lr, betas=(.9, 0.99999), eps=1e-04)
 
@@ -14,7 +14,7 @@ class Rebar:
         z = logits.detach() + torch.log(u) - torch.log1p(-u)
         z.requires_grad_(True)
         b = z.gt(0.).type_as(z)
-        f_b = discriminator(b, stim)
+        f_b = -discriminator(b, stim)
         d_logits = self.estimate(discriminator=discriminator,
                                  f_b=f_b, b=b, u=u, v=v, z=z,
                                  logits=logits, stim=stim)
@@ -31,9 +31,9 @@ class Rebar:
         z_tilde = self._get_z_tilde(logits, b, v)
         sig_z = torch.sigmoid(z / self.temp)
         assert torch.sum(torch.isnan(sig_z)) == 0, "sig_z has a nan!"
-        f_z = discriminator(sig_z, stim)
+        f_z = -discriminator(sig_z, stim)
         assert torch.sum(torch.isnan(f_z)) == 0, "f_z has a nan!"
-        f_z_tilde = discriminator(z_tilde, stim)
+        f_z_tilde = -discriminator(z_tilde, stim)
         if torch.sum(torch.isnan(f_z_tilde)) != 0:
             print(z_tilde, f_z_tilde)
         assert torch.sum(torch.isnan(f_z_tilde)) == 0, "f_z_tilde has a nan!"
