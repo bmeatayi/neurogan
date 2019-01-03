@@ -117,7 +117,7 @@ class TrainerCGAN(object):
             generator.cuda()
             discriminator.cuda()
 
-        optim_g = self.optimizer_G(generator.parameters(), lr=lr, betas=(b1, b2))
+        optim_g = self.optimizer_G(generator.parameters(), lr=lr*10, betas=(b1, b2))
         optim_d = self.optimizer_D(discriminator.parameters(), lr=lr, betas=(b1, b2))
 
         self.logger.add_text('G-optim', repr(optim_g))
@@ -265,7 +265,7 @@ class TrainerCGAN(object):
             log_probability = self.sampler.log_prob(fake_samples)
             d_log_probability = autograd.grad([log_probability], [fake_logits],
                                               grad_outputs=torch.ones_like(log_probability))[0]
-            g_loss = g_loss.detach() * d_log_probability.detach()
+            g_loss = -pred_fake.detach() * d_log_probability.detach()
 
             # g_loss = (g_loss.detach() * log_probability).mean()
         elif self.grad_mode is 'rebar':
