@@ -44,7 +44,8 @@ for i in range(nCell):
     y = norm.pdf(np.linspace(0, fcSz[2], fcSz[2]), loc=2 + i * 2, scale=5)
     fcFilt[i, 1, :, :] = np.matmul(x[:, np.newaxis], y[:, np.newaxis].T)
 
-fcFilt = fcFilt.reshape((fcFilt.shape[0], -1))
+
+fcFilt = .07 * fcFilt.reshape((fcFilt.shape[0], -1))
 
 simulator = GeneratorCNN(nw=nW, nh=nH, nl=nT,
                          n_filters=(nF1, nF2),
@@ -68,12 +69,15 @@ simulator.conv2.weight.data = torch.tensor(convFilt2, dtype=torch.float32).unsqu
 simulator.conv2.bias.data = torch.zeros(nF2, dtype=torch.float32)
 
 simulator.fc.weight.data = torch.tensor(fcFilt, dtype=torch.float32)
+fcBias = torch.rand(nCell)-5.0
+simulator.fc.bias.data = fcBias
+
 simulator.shared_noise.data = torch.tensor([.4, .6, .5], dtype=torch.float32)
 
 # Create stimulation matrix
 stimLength = 25000
-stim = torch.rand(stimLength, nW, nH)
-nRepeat = 200
+stim = (torch.rand(stimLength, nW, nH)-.5)*2
+nRepeat = 300
 spikes = torch.zeros(nRepeat, stimLength, nCell, dtype=torch.uint8)
 for i in range(stimLength-nT+1):
     print(f"{i}/{stimLength}")
@@ -88,4 +92,5 @@ np.save('spike.npy', spikes)
 np.save('convFilt1.npy',convFilt1)
 np.save('convFilt2.npy',convFilt2)
 np.save('fcFilt.npy',fcFilt)
+np.save('fcBias.npy', fcBias.cpu().numpy())
 
