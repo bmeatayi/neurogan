@@ -37,8 +37,12 @@ class DiscriminatorCNN(nn.Module):
         in_shp, conv2outShape = self._compute_fc_in()
         self.l3_filt_shape = (self.nCell, *conv2outShape)
         self.fc1 = nn.utils.spectral_norm(nn.Linear(in_features=in_shp, out_features=self.nCell, bias=True))
-        self.fc2 = nn.utils.spectral_norm(nn.Linear(in_features=self.nCell, out_features=32, bias=True))
-        self.fc3 = nn.utils.spectral_norm(nn.Linear(in_features=32, out_features=1, bias=True))
+        self.fc2 = nn.utils.spectral_norm(nn.Linear(in_features=self.nCell, out_features=64, bias=True))
+        self.fc3 = nn.utils.spectral_norm(nn.Linear(in_features=64, out_features=1, bias=True))
+
+        self.fcSpike1 = nn.utils.spectral_norm(nn.Linear(in_features=self.nCell, out_features=32, bias=True))
+        self.fcSpike2 = nn.utils.spectral_norm(nn.Linear(in_features=32, out_features=64, bias=True))
+        self.fcSpike3 = nn.utils.spectral_norm(nn.Linear(in_features=64, out_features=self.nCell, bias=True))
 
 
 
@@ -46,8 +50,13 @@ class DiscriminatorCNN(nn.Module):
         x_conv1 = F.relu(self.conv1(stim))
         x_conv2 = F.relu(self.conv2(x_conv1))
         x_fc1 = F.relu(self.fc1(x_conv2.view([x_conv2.shape[0], -1])))
-        x = F.relu(self.fc2(x_fc1))
-        x = F.relu(self.fc3(x)) + torch.bmm(spike, x_fc1.unsqueeze(2)).squeeze(2)
+        x_fc2 = F.relu(self.fc2(x_fc1))
+
+        x_sp = F.relu(self.fcSpike1(spike))
+        x_sp = F.relu(self.fcSpike2(x_sp))
+        x_sp = F.relu(self.fcSpike3(x_sp))
+
+        x = F.relu(self.fc3(x_fc2)) + torch.bmm(x_sp, x_fc1.unsqueeze(2)).squeeze(2)
         return x
 
     def _compute_fc_in(self):
