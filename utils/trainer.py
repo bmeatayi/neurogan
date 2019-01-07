@@ -187,7 +187,8 @@ class TrainerCGAN(object):
                 self.d_loss_history.append(d_loss)
 
                 print(f"[Epoch {epoch}/{n_epochs}] [Batch {i}/{len(train_loader)}] [D loss: {d_loss}] [G loss: {g_loss}]")
-
+                self.logger.add_scalar('d_loss', d_loss)
+                self.logger.add_scalar('g_loss', g_loss)
                 batches_done = epoch * len(train_loader) + i
                 if batches_done % log_interval == 0:
                     self.log_result(generator, discriminator,
@@ -197,6 +198,8 @@ class TrainerCGAN(object):
             # Temperature annealing
             if self.grad_mode == 'gs':
                 self.gumbel_softmax.temperature *= temp_anneal
+            torch.save(generator, self.log_folder + 'generator.pt')
+            torch.save(discriminator, self.log_folder + 'discriminator.pt')
 
         self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
@@ -278,8 +281,8 @@ class TrainerCGAN(object):
         generator.eval()
         discriminator.eval()
 
-        fake_data = torch.zeros([0, 970, generator.n_t, generator.n_cell])
-        real_data = torch.zeros([0, 970, generator.n_t, generator.n_cell])
+        fake_data = torch.zeros([0, 995, generator.n_t, generator.n_cell])
+        real_data = torch.zeros([0, 995, generator.n_t, generator.n_cell])
 
         for j in range(n_sample):
             temp_gen = torch.zeros([0, generator.n_t, generator.n_cell])
@@ -321,24 +324,24 @@ class TrainerCGAN(object):
         viz.noise_corr(fake_data, model='')
         pdf.savefig(bbox_inches='tight')
 
-        real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
-        real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
-        real_w_shared_noise = -.5
-
-        gen_glm_filters = generator.GLM.weight.detach().cpu().numpy().reshape(real_glm_filters.shape)
-        gen_glm_biases = generator.GLM.bias.detach().cpu().numpy()
-        gen_w_shared_noise = generator.shn_layer.weight.detach().cpu().numpy()
-        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-        ax[0].set_title('GLM filter parameters')
-        ax[0].plot([-1, 2], [-1, 2], 'black')
-        ax[0].plot(real_glm_filters.flatten(), np.flip(gen_glm_filters, axis=(1, 2)).flatten(), '.')
-        ax[0].plot(real_w_shared_noise, gen_w_shared_noise, '*', markersize=5, label='Shared noise scale')
-
-        ax[1].set_title('GLM biases')
-        ax[1].plot([-6, -3], [-6, -3], 'black')
-        ax[1].plot(real_glm_biases, gen_glm_biases, '.')
-        pdf.savefig(bbox_inches='tight')
-
+        # real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
+        # real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
+        # real_w_shared_noise = -.5
+        #
+        # gen_glm_filters = generator.GLM.weight.detach().cpu().numpy().reshape(real_glm_filters.shape)
+        # gen_glm_biases = generator.GLM.bias.detach().cpu().numpy()
+        # gen_w_shared_noise = generator.shn_layer.weight.detach().cpu().numpy()
+        # fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        # ax[0].set_title('GLM filter parameters')
+        # ax[0].plot([-1, 2], [-1, 2], 'black')
+        # ax[0].plot(real_glm_filters.flatten(), np.flip(gen_glm_filters, axis=(1, 2)).flatten(), '.')
+        # ax[0].plot(real_w_shared_noise, gen_w_shared_noise, '*', markersize=5, label='Shared noise scale')
+        #
+        # ax[1].set_title('GLM biases')
+        # ax[1].plot([-6, -3], [-6, -3], 'black')
+        # ax[1].plot(real_glm_biases, gen_glm_biases, '.')
+        # pdf.savefig(bbox_inches='tight')
+        #
         viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
         pdf.savefig(bbox_inches='tight')
 
