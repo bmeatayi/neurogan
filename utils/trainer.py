@@ -164,8 +164,8 @@ class TrainerCGAN(object):
 
                 # Train discriminator
                 discriminator.train()
+                generator.eval()
                 optim_d.zero_grad()
-                optim_g.zero_grad()
 
                 z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
                 fake_logits = generator(z, stim)
@@ -185,6 +185,7 @@ class TrainerCGAN(object):
                 optim_d.step()
                 d_loss = d_loss.data.cpu().numpy()
                 self.d_loss_history.append(d_loss)
+                generator.train()
 
                 print(f"[Epoch {epoch}/{n_epochs}] [Batch {i}/{len(train_loader)}] [D loss: {d_loss}] [G loss: {g_loss}]")
                 self.logger.add_scalar('d_loss', d_loss)
