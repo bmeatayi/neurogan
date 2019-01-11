@@ -40,6 +40,9 @@ class GeneratorCNN(nn.Module):
                                padding=0,
                                bias=True)
 
+        if torch.cuda.is_available():
+            self.cuda()
+
         in_shp, conv2outShape = self._compute_fc_in()
         self.l3_filt_shape = (self.n_cell, *conv2outShape)
 
@@ -50,7 +53,7 @@ class GeneratorCNN(nn.Module):
 
     def _compute_fc_in(self):
         x = np.random.random([1, self.nL, self.nW, self.nH])
-        x = torch.from_numpy(x)
+        x = torch.tensor(x)
         x = self.conv1(x.float())
         x = self.conv2(x)
         conv2shape = x.size()[1:]
@@ -59,7 +62,7 @@ class GeneratorCNN(nn.Module):
 
     def forward(self, z, stim):
         x_conv1 = self.conv1(stim)
-        x = F.relu(x_conv1 + self.shared_noise[0] * z[:,0].view(-1,1,1,1).repeat((1, *x_conv1.shape[1:])))
+        x = F.relu(x_conv1) # + self.shared_noise[0] * z[:,0].view(-1,1,1,1).repeat((1, *x_conv1.shape[1:])))
         x_conv2 = self.conv2(x)
         x = F.relu(x_conv2 + self.shared_noise[1] * z[:,1].view(-1,1,1,1).repeat((1, *x_conv2.shape[1:])))
         x = self.fc(x.view([x.shape[0], -1])) + (self.shared_noise[2] * z[:,2]).unsqueeze(1)
