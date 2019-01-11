@@ -92,14 +92,18 @@ class DiscriminatorCNN(nn.Module):
                                                       kernel_size=(self.szFiltL1, self.szFiltL1),
                                                       stride=1,
                                                       padding=0,
-                                                      bias=True))
+                                                      bias=True),
+                                            dim=1)
 
         self.conv2 = nn.utils.spectral_norm(nn.Conv2d(in_channels=self.nFiltL1,
                                                       out_channels=self.nFiltL2,
                                                       kernel_size=(self.szFiltL2, self.szFiltL2),
                                                       stride=1,
                                                       padding=0,
-                                                      bias=True))
+                                                      bias=True),
+                                            dim=1)
+        if torch.cuda.is_available():
+            self.cuda()
 
         in_shp, conv2outShape = self._compute_fc_in()
         self.l3_filt_shape = (self.nCell, *conv2outShape)
@@ -129,6 +133,7 @@ class DiscriminatorCNN(nn.Module):
 
         self.dense_layers = nn.Sequential(dense_layers)
 
+
     def forward(self, spike, stim):
         x_conv = F.relu(self.conv1(stim))
         x_conv = F.relu(self.conv2(x_conv))
@@ -137,7 +142,7 @@ class DiscriminatorCNN(nn.Module):
 
     def _compute_fc_in(self):
         x = np.random.random([1, self.nL, self.nW, self.nH])
-        x = torch.from_numpy(x)
+        x = torch.tensor(x)
         x = self.conv1(x.float())
         x = self.conv2(x)
         conv2shape = x.size()[1:]
