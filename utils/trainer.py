@@ -8,11 +8,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from utils.evaluation import Visualize
 from modules.gumbel_softmax_binary import GumbelSoftmaxBinary
-from utils.rebar import Rebar
+# from utils.rebar import Rebar
 from utils.plot_props import PlotProps
 
 FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
+torch.set_default_tensor_type(FloatTensor)
 plt.ioff()  # Deactivate interactive mode to avoid error on cluster run
 
 
@@ -201,6 +202,10 @@ class TrainerCGAN(object):
                 self.gumbel_softmax.temperature *= temp_anneal
             torch.save(generator, self.log_folder + 'generator.pt')
             torch.save(discriminator, self.log_folder + 'discriminator.pt')
+            np.save(self.log_folder + 'g_loss.npy', g_loss)
+            np.save(self.log_folder + 'd_loss.npy', d_loss)
+            del spike, stim, inputs, real_sample, fake_logits, fake_samples, pred_fake, pred_real
+            del d_real_loss, d_fake_loss
 
         self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
@@ -209,6 +214,8 @@ class TrainerCGAN(object):
         self.logger.close()
         torch.save(generator, self.log_folder + 'generator.pt')
         torch.save(discriminator, self.log_folder + 'discriminator.pt')
+        np.save(self.log_folder+'g_loss.npy', g_loss)
+        np.save(self.log_folder + 'd_loss.npy', d_loss)
 
     def _logit2sample(self, fake_logits):
         r"""
@@ -269,6 +276,9 @@ class TrainerCGAN(object):
             log_probability = self.sampler.log_prob(fake_samples)
             d_log_probability = autograd.grad([log_probability], [fake_logits],
                                               grad_outputs=torch.ones_like(log_probability))[0]
+            # TODO: Compute probability from the vector g_loss (without getting its mean) and multiply
+            #  it with derivative of log probability
+
             g_loss = g_loss.detach() * d_log_probability.detach()
 
             # g_loss = (g_loss.detach() * log_probability).mean()
@@ -297,13 +307,14 @@ class TrainerCGAN(object):
                 if self.grad_mode == 'gs':
                     fake_sample[fake_sample >= .5] = 1
                     fake_sample[fake_sample < .5] = 0
-                temp_gen = torch.cat((temp_gen, fake_sample.detach().cpu()))
+                temp_gen = torch.cat((temp_gen, fake_sample.detach()))
                 temp_real = torch.cat((temp_real, cnt.type(FloatTensor)))
             fake_data = torch.cat((fake_data, temp_gen.unsqueeze(0)))
             real_data = torch.cat((real_data, temp_real.unsqueeze(0)))
+            del temp_gen, temp_real
 
-        fake_data = np.squeeze(fake_data.numpy())
-        real_data = np.squeeze(real_data.detach().cpu().numpy())
+        fake_data = np.squeeze(fake_data.cpu().numpy())
+        real_data = np.squeeze(real_data.cpu().numpy())
 
         pdf = PdfPages(self.log_folder + 'iter_' + str(batches_done) + '.pdf')
         if fake_data.ndim == 2:
@@ -397,6 +408,7 @@ class TrainerCGAN(object):
         plt.close()
         generator.train()
         discriminator.train()
+        del real_data, fake_data
 
     def plot_loss_history(self):
         plotprop = PlotProps()
