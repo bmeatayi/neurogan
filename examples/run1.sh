@@ -11,13 +11,13 @@
 #SBATCH --get-user-env
 
 #SBATCH --mail-type=end
-#SBATCH --mem=20000mb
+#SBATCH --mem=24000mb
 
 #SBATCH --mail-user=m.atayi@tum.de
 
 #SBATCH --export=NONE
 
-#SBATCH --time=18:00:00
+#SBATCH --time=36:00:00
 
 source /etc/profile.d/modules.sh
 
