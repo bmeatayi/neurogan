@@ -14,8 +14,9 @@ from utils.plot_props import PlotProps
 FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
 torch.set_default_tensor_type(FloatTensor)
-plt.ioff()  # Deactivate interactive mode to avoid error on cluster run
-
+# plt.ioff()  # Deactivate interactive mode to avoid error on cluster run
+import matplotlib
+matplotlib.use('Agg') # Avoiding tkinter error on local machine. You may need to comment it while running on the server.
 
 class TrainerCGAN(object):
     def __init__(self, optimizer_g=torch.optim.Adam,
@@ -138,7 +139,7 @@ class TrainerCGAN(object):
                 if i % n_disc_train == 0:
                     # Train Generator
                     optim_g.zero_grad()
-                    discriminator.eval()
+                    # discriminator.eval()
                     z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
                     fake_logits = generator(z, stim)
                     if self.grad_mode == 'rebar':
@@ -405,7 +406,37 @@ class TrainerCGAN(object):
         #     ax[i].set_title('Neuron' + str(i))
         #
         # plt.savefig(self.log_folder + 'filt %i.jpg' % batches_done, dpi=120)
+        # plt.close()
+
+        # PLOT FILTERS
+        pdf = PdfPages(self.log_folder + 'filt_iter_' + str(batches_done) + '.pdf')
+        conv1filt = generator.conv1.weight.data.detach().cpu().numpy()
+        conv2filt = generator.conv2.weight.data.detach().cpu().numpy()
+        fcFilt = generator.fc.weight.detach().cpu().view(-1, 2, 24, 24).numpy()
+
+        fig, ax = plt.subplots(*conv1filt.shape[0:2], figsize=(10, 5))
+        vmin, vmax = conv1filt.min(), conv1filt.max()
+        for (filtRow, axRow) in zip(conv1filt, ax):
+            for (filt, axis) in zip(filtRow, axRow):
+                axis.imshow(filt, vmin=vmin, vmax=vmax)
+        pdf.savefig(bbox_inches='tight')
+
+        fig, ax = plt.subplots(*conv2filt.shape[0:2], figsize=(10, 5))
+        vmin, vmax = conv2filt.min(), conv2filt.max()
+        for (filtRow, axRow) in zip(conv2filt, ax):
+            for (filt, axis) in zip(filtRow, axRow):
+                axis.imshow(filt, vmin=vmin, vmax=vmax)
+        pdf.savefig(bbox_inches='tight')
+
+        fig, ax = plt.subplots(*fcFilt.shape[0:2], figsize=(10, 20))
+        vmin, vmax = fcFilt.min(), fcFilt.max()
+        for (filtRow, axRow) in zip(fcFilt, ax):
+            for (filt, axis) in zip(filtRow, axRow):
+                axis.imshow(filt, vmin=vmin, vmax=vmax)
+        pdf.savefig(bbox_inches='tight')
+        pdf.close()
         plt.close()
+
         generator.train()
         discriminator.train()
         del real_data, fake_data
