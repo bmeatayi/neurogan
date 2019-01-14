@@ -62,10 +62,10 @@ class GeneratorCNN(nn.Module):
 
     def forward(self, z, stim):
         x_conv1 = self.conv1(stim)
-        x = F.relu(x_conv1) # + self.shared_noise[0] * z[:,0].view(-1,1,1,1).repeat((1, *x_conv1.shape[1:])))
+        x = F.relu(x_conv1)  # + self.shared_noise[0] * z[:,0].view(-1,1,1,1).repeat((1, *x_conv1.shape[1:])))
         x_conv2 = self.conv2(x)
-        x = F.relu(x_conv2 + self.shared_noise[1] * z[:,1].view(-1,1,1,1).repeat((1, *x_conv2.shape[1:])))
-        x = self.fc(x.view([x.shape[0], -1])) + (self.shared_noise[2] * z[:,2]).unsqueeze(1)
+        x = F.relu(x_conv2)# + self.shared_noise[1] * z[:,1].view(-1,1,1,1).repeat((1, *x_conv2.shape[1:])))
+        x = self.fc(x.view([x.shape[0], -1])) + (self.shared_noise[2] * z[:, 2]).unsqueeze(1)
         return x.unsqueeze(1)
 
     def generate(self, z, stim):
