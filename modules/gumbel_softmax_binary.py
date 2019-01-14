@@ -39,9 +39,6 @@ class GumbelSoftmaxBinary(nn.Module):
     def sample_logistic(self, shape):
         U = torch.rand(shape)
         # l = self.logistic_distribution.sample(shape)
-        if torch.cuda.is_available():
-            U.cuda()
-            # l.cuda()
         return torch.log(U + self.eps) - torch.log(1 - U)
 
 

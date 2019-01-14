@@ -8,13 +8,15 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from utils.evaluation import Visualize
 from modules.gumbel_softmax_binary import GumbelSoftmaxBinary
-from utils.rebar import Rebar
+# from utils.rebar import Rebar
 from utils.plot_props import PlotProps
 
 FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
-plt.ioff()  # Deactivate interactive mode to avoid error on cluster run
-
+torch.set_default_tensor_type(FloatTensor)
+# plt.ioff()  # Deactivate interactive mode to avoid error on cluster run
+import matplotlib
+matplotlib.use('Agg') # Avoiding tkinter error on local machine. You may need to comment it while running on the server.
 
 class TrainerCGAN(object):
     def __init__(self, optimizer_g=torch.optim.Adam,
@@ -117,7 +119,7 @@ class TrainerCGAN(object):
             generator.cuda()
             discriminator.cuda()
 
-        optim_g = self.optimizer_G(generator.parameters(), lr=lr*10, betas=(b1, b2))
+        optim_g = self.optimizer_G(generator.parameters(), lr=lr, betas=(b1, b2))
         optim_d = self.optimizer_D(discriminator.parameters(), lr=lr, betas=(b1, b2))
 
         self.logger.add_text('G-optim', repr(optim_g))
@@ -137,7 +139,7 @@ class TrainerCGAN(object):
                 if i % n_disc_train == 0:
                     # Train Generator
                     optim_g.zero_grad()
-                    discriminator.eval()
+                    # discriminator.eval()
                     z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
                     fake_logits = generator(z, stim)
                     if self.grad_mode == 'rebar':
@@ -164,8 +166,8 @@ class TrainerCGAN(object):
 
                 # Train discriminator
                 discriminator.train()
+                generator.eval()
                 optim_d.zero_grad()
-                optim_g.zero_grad()
 
                 z = FloatTensor(np.random.normal(0, 1, (batch_size, generator.latent_dim)))
                 fake_logits = generator(z, stim)
@@ -185,9 +187,11 @@ class TrainerCGAN(object):
                 optim_d.step()
                 d_loss = d_loss.data.cpu().numpy()
                 self.d_loss_history.append(d_loss)
+                generator.train()
 
                 print(f"[Epoch {epoch}/{n_epochs}] [Batch {i}/{len(train_loader)}] [D loss: {d_loss}] [G loss: {g_loss}]")
-
+                self.logger.add_scalar('d_loss', d_loss)
+                self.logger.add_scalar('g_loss', g_loss)
                 batches_done = epoch * len(train_loader) + i
                 if batches_done % log_interval == 0:
                     self.log_result(generator, discriminator,
@@ -197,6 +201,12 @@ class TrainerCGAN(object):
             # Temperature annealing
             if self.grad_mode == 'gs':
                 self.gumbel_softmax.temperature *= temp_anneal
+            torch.save(generator, self.log_folder + 'generator.pt')
+            torch.save(discriminator, self.log_folder + 'discriminator.pt')
+            np.save(self.log_folder + 'g_loss.npy', g_loss)
+            np.save(self.log_folder + 'd_loss.npy', d_loss)
+            del spike, stim, inputs, real_sample, fake_logits, fake_samples, pred_fake, pred_real
+            del d_real_loss, d_fake_loss
 
         self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
 
@@ -205,6 +215,8 @@ class TrainerCGAN(object):
         self.logger.close()
         torch.save(generator, self.log_folder + 'generator.pt')
         torch.save(discriminator, self.log_folder + 'discriminator.pt')
+        np.save(self.log_folder+'g_loss.npy', g_loss)
+        np.save(self.log_folder + 'd_loss.npy', d_loss)
 
     def _logit2sample(self, fake_logits):
         r"""
@@ -265,7 +277,10 @@ class TrainerCGAN(object):
             log_probability = self.sampler.log_prob(fake_samples)
             d_log_probability = autograd.grad([log_probability], [fake_logits],
                                               grad_outputs=torch.ones_like(log_probability))[0]
-            g_loss = -pred_fake.detach() * d_log_probability.detach()
+            # TODO: Compute probability from the vector g_loss (without getting its mean) and multiply
+            #  it with derivative of log probability
+
+            g_loss = g_loss.detach() * d_log_probability.detach()
 
             # g_loss = (g_loss.detach() * log_probability).mean()
         elif self.grad_mode is 'rebar':
@@ -278,8 +293,8 @@ class TrainerCGAN(object):
         generator.eval()
         discriminator.eval()
 
-        fake_data = torch.zeros([0, 970, generator.n_t, generator.n_cell])
-        real_data = torch.zeros([0, 970, generator.n_t, generator.n_cell])
+        fake_data = torch.zeros([0, 995, generator.n_t, generator.n_cell])
+        real_data = torch.zeros([0, 995, generator.n_t, generator.n_cell])
 
         for j in range(n_sample):
             temp_gen = torch.zeros([0, generator.n_t, generator.n_cell])
@@ -293,13 +308,14 @@ class TrainerCGAN(object):
                 if self.grad_mode == 'gs':
                     fake_sample[fake_sample >= .5] = 1
                     fake_sample[fake_sample < .5] = 0
-                temp_gen = torch.cat((temp_gen, fake_sample.detach().cpu()))
+                temp_gen = torch.cat((temp_gen, fake_sample.detach()))
                 temp_real = torch.cat((temp_real, cnt.type(FloatTensor)))
             fake_data = torch.cat((fake_data, temp_gen.unsqueeze(0)))
             real_data = torch.cat((real_data, temp_real.unsqueeze(0)))
+            del temp_gen, temp_real
 
-        fake_data = np.squeeze(fake_data.numpy())
-        real_data = np.squeeze(real_data.detach().cpu().numpy())
+        fake_data = np.squeeze(fake_data.cpu().numpy())
+        real_data = np.squeeze(real_data.cpu().numpy())
 
         pdf = PdfPages(self.log_folder + 'iter_' + str(batches_done) + '.pdf')
         if fake_data.ndim == 2:
@@ -321,24 +337,24 @@ class TrainerCGAN(object):
         viz.noise_corr(fake_data, model='')
         pdf.savefig(bbox_inches='tight')
 
-        real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
-        real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
-        real_w_shared_noise = -.5
-
-        gen_glm_filters = generator.GLM.weight.detach().cpu().numpy().reshape(real_glm_filters.shape)
-        gen_glm_biases = generator.GLM.bias.detach().cpu().numpy()
-        gen_w_shared_noise = generator.shn_layer.weight.detach().cpu().numpy()
-        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-        ax[0].set_title('GLM filter parameters')
-        ax[0].plot([-1, 2], [-1, 2], 'black')
-        ax[0].plot(real_glm_filters.flatten(), np.flip(gen_glm_filters, axis=(1, 2)).flatten(), '.')
-        ax[0].plot(real_w_shared_noise, gen_w_shared_noise, '*', markersize=5, label='Shared noise scale')
-
-        ax[1].set_title('GLM biases')
-        ax[1].plot([-6, -3], [-6, -3], 'black')
-        ax[1].plot(real_glm_biases, gen_glm_biases, '.')
-        pdf.savefig(bbox_inches='tight')
-
+        # real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
+        # real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
+        # real_w_shared_noise = -.5
+        #
+        # gen_glm_filters = generator.GLM.weight.detach().cpu().numpy().reshape(real_glm_filters.shape)
+        # gen_glm_biases = generator.GLM.bias.detach().cpu().numpy()
+        # gen_w_shared_noise = generator.shn_layer.weight.detach().cpu().numpy()
+        # fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        # ax[0].set_title('GLM filter parameters')
+        # ax[0].plot([-1, 2], [-1, 2], 'black')
+        # ax[0].plot(real_glm_filters.flatten(), np.flip(gen_glm_filters, axis=(1, 2)).flatten(), '.')
+        # ax[0].plot(real_w_shared_noise, gen_w_shared_noise, '*', markersize=5, label='Shared noise scale')
+        #
+        # ax[1].set_title('GLM biases')
+        # ax[1].plot([-6, -3], [-6, -3], 'black')
+        # ax[1].plot(real_glm_biases, gen_glm_biases, '.')
+        # pdf.savefig(bbox_inches='tight')
+        #
         viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
         pdf.savefig(bbox_inches='tight')
 
@@ -390,9 +406,40 @@ class TrainerCGAN(object):
         #     ax[i].set_title('Neuron' + str(i))
         #
         # plt.savefig(self.log_folder + 'filt %i.jpg' % batches_done, dpi=120)
+        # plt.close()
+
+        # PLOT FILTERS
+        pdf = PdfPages(self.log_folder + 'filt_iter_' + str(batches_done) + '.pdf')
+        conv1filt = generator.conv1.weight.data.detach().cpu().numpy()
+        conv2filt = generator.conv2.weight.data.detach().cpu().numpy()
+        fcFilt = generator.fc.weight.detach().cpu().view(-1, 2, 24, 24).numpy()
+
+        fig, ax = plt.subplots(*conv1filt.shape[0:2], figsize=(10, 5))
+        vmin, vmax = conv1filt.min(), conv1filt.max()
+        for (filtRow, axRow) in zip(conv1filt, ax):
+            for (filt, axis) in zip(filtRow, axRow):
+                axis.imshow(filt, vmin=vmin, vmax=vmax)
+        pdf.savefig(bbox_inches='tight')
+
+        fig, ax = plt.subplots(*conv2filt.shape[0:2], figsize=(10, 5))
+        vmin, vmax = conv2filt.min(), conv2filt.max()
+        for (filtRow, axRow) in zip(conv2filt, ax):
+            for (filt, axis) in zip(filtRow, axRow):
+                axis.imshow(filt, vmin=vmin, vmax=vmax)
+        pdf.savefig(bbox_inches='tight')
+
+        fig, ax = plt.subplots(*fcFilt.shape[0:2], figsize=(10, 20))
+        vmin, vmax = fcFilt.min(), fcFilt.max()
+        for (filtRow, axRow) in zip(fcFilt, ax):
+            for (filt, axis) in zip(filtRow, axRow):
+                axis.imshow(filt, vmin=vmin, vmax=vmax)
+        pdf.savefig(bbox_inches='tight')
+        pdf.close()
         plt.close()
+
         generator.train()
         discriminator.train()
+        del real_data, fake_data
 
     def plot_loss_history(self):
         plotprop = PlotProps()
