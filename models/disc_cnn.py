@@ -92,16 +92,14 @@ class DiscriminatorCNN(nn.Module):
                                                       kernel_size=(self.szFiltL1, self.szFiltL1),
                                                       stride=1,
                                                       padding=0,
-                                                      bias=True),
-                                            dim=1)
+                                                      bias=True))
 
         self.conv2 = nn.utils.spectral_norm(nn.Conv2d(in_channels=self.nFiltL1,
                                                       out_channels=self.nFiltL2,
                                                       kernel_size=(self.szFiltL2, self.szFiltL2),
                                                       stride=1,
                                                       padding=0,
-                                                      bias=True),
-                                            dim=1)
+                                                      bias=True))
         if torch.cuda.is_available():
             self.cuda()
 
