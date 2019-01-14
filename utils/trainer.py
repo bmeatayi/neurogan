@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from utils.evaluation import Visualize
 from modules.gumbel_softmax_binary import GumbelSoftmaxBinary
-# from utils.rebar import Rebar
+from utils.rebar import Rebar
 from utils.plot_props import PlotProps
 
 FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
@@ -17,6 +17,7 @@ torch.set_default_tensor_type(FloatTensor)
 # plt.ioff()  # Deactivate interactive mode to avoid error on cluster run
 import matplotlib
 matplotlib.use('Agg') # Avoiding tkinter error on local machine. You may need to comment it while running on the server.
+
 
 class TrainerCGAN(object):
     def __init__(self, optimizer_g=torch.optim.Adam,
