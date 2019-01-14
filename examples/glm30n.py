@@ -21,7 +21,7 @@ plt.ioff()
 spike_file = '..//dataset//GLM_2D_30n_shared_noise//data.npy'
 stim_file = '..//dataset//GLM_2D_30n_shared_noise//stim.npy'
 
-log_folder = 'cgan_results//SpN_gs_10N_run13_lr5e-4_anneal.9995//'
+log_folder = 'cgan_results//SpN_reinforce_30N_run23_lr1e-5_templearning//'
 
 batch_size = 128
 N = 30
@@ -53,13 +53,13 @@ solver = TrainerCGAN(optimizer_g=torch.optim.Adam,
                      log_folder=log_folder,
                      gan_mode='sn',
                      lambda_gp=None,
-                     grad_mode='gs',
+                     grad_mode='rebar',
                      gs_temp=1,
                      n_neuron=N)
 
 solver.train(generator=generator, discriminator=discriminator,
              train_loader=train_dataloader, val_loader=val_dataloader,
-             lr=1e-3, b1=.9, b2=0.999,
+             lr=1e-4, b1=.5, b2=0.999,
              log_interval=10000, n_epochs=3500,
              n_disc_train=5,
              temp_anneal=.9995
