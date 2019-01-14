@@ -13,10 +13,14 @@ from models.disc_cnn import DiscriminatorCNN
 from utils.trainer import TrainerCGAN
 from utils.cgan_dataset import GanDataset
 
-spike_file = '..//dataset//cnn_data//spike.npy'
-stim_file = '..//dataset//cnn_data//stim.npy'
+FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
+torch.set_default_tensor_type(FloatTensor)
 
-log_folder = 'cnn_results//run08_gs.5_ndisc5_lr1e-5_dChanged//'
+spike_file = '..//dataset//cnn_data//shn_0_0_.3//spike.npy'
+stim_file = '..//dataset//cnn_data//shn_0_0_.3//stim.npy'
+
+log_folder = 'cnn_results//run28_gs1_ann0.992_ndisc5_lr2e-4_shn[0,1]=0_6layers//'
 
 batch_size = 128
 N = 10
@@ -26,7 +30,7 @@ f1sz = 11
 f2sz = 7
 
 train_dataset = GanDataset(spike_file=spike_file, stim_file=stim_file,
-                           stim_win_len=nt, cnt_win_len=0, n_split=1, st_end=(0, 20000))
+                           stim_win_len=nt, cnt_win_len=0, n_split=1, st_end=(0, 24000))
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -46,7 +50,7 @@ discriminator = DiscriminatorCNN(nw=nx, nh=nx, nl=nt,
                                  n_cell=N,
                                  spectral_norm=True,
                                  mid_act_func=nn.LeakyReLU(0.2, inplace=True),
-                                 n_units=[128, 256, 512, 256, 128],
+                                 n_units=[64, 128, 256, 256, 128, 64],
                                  p_drop=None
                                  )
 
@@ -56,13 +60,14 @@ solver = TrainerCGAN(optimizer_g=torch.optim.Adam,
                      gan_mode='sn',
                      lambda_gp=None,
                      grad_mode='gs',
-                     gs_temp=.5,
+                     gs_temp=1,
                      n_neuron=N)
 
+generator.shared_noise.data[0:2] = torch.tensor([0., 0.])
 solver.train(generator=generator, discriminator=discriminator,
              train_loader=train_dataloader, val_loader=val_dataloader,
-             lr=1e-5, b1=.5, b2=0.999,
-             log_interval=5000, n_epochs=1000,
-             n_disc_train=1,
-             temp_anneal=1.0
+             lr=2e-4, b1=.5, b2=0.999,
+             log_interval=1000, n_epochs=600,
+             n_disc_train=5,
+             temp_anneal=0.992
              )
