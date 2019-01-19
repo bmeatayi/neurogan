@@ -29,7 +29,7 @@ class Evaluate:
       """
 
     def __init__(self, groundtruth, time=1):
-        self.groundtruth = np.array(groundtruth).squeeze()
+        self.groundtruth = np.array(groundtruth)
         self.n_repeats, self.n_bins, self.n_neurons = self.groundtruth.shape
         self.time = time
 
@@ -45,7 +45,7 @@ class Evaluate:
         """
         generated = self._check(generated)
         return generated.mean(axis=(0, 1)) / self.time, \
-               self.groundtruth.mean(axis=(0,1)) / self.time
+               self.groundtruth.mean(axis=(0, 1)) / self.time
 
     def spike_count_std(self, generated):
         """Computes the standard deviation of number of spikes per neuron.
@@ -58,8 +58,8 @@ class Evaluate:
             ndarray: Spike count std of groundtruth data.
         """
         generated = self._check(generated)
-        return generated.std(axis=(0,1)) / self.time, \
-               self.groundtruth.std(axis=(0,1)) / self.time
+        return generated.std(axis=(0, 1)) / self.time, \
+               self.groundtruth.std(axis=(0, 1)) / self.time
 
     def spikes_per_bin(self, generated):
         """"""
@@ -146,7 +146,7 @@ class Evaluate:
         return NotImplemented
 
     def _check(self, generated):
-        generated = np.array(generated).squeeze()
+        generated = np.array(generated)
         assert generated.shape == self.groundtruth.shape, "Size mismatch!"
         return generated
 
@@ -186,7 +186,7 @@ class Visualize(Evaluate):
             ax = self.plot.init_subplot('Mean Firing Rates')
         model_mean, gt_mean = self.spike_count_average(generated)
         vmax = np.max([model_mean.max(), gt_mean.max()])
-        ax.plot([0, vmax+.2], [0, vmax+.2], 'black')
+        ax.plot([0, vmax + .2], [0, vmax + .2], 'black')
         ax.plot(gt_mean, model_mean, marker, label=model, markersize=6)
         ax.set_xlabel('Real Mean Firing Rate')
         ax.set_ylabel('Generated Mean Firing Rate')
@@ -211,7 +211,7 @@ class Visualize(Evaluate):
             ax = self.plot.init_subplot('Std')
         model_std, gt_std = self.spike_count_std(generated)
         vmax = np.max([model_std.max(), gt_std.max()])
-        ax.plot([0, vmax+.2], [0, vmax+.2], 'black')
+        ax.plot([0, vmax + .2], [0, vmax + .2], 'black')
         ax.plot(gt_std, model_std, marker, label=model, markersize=6)
         ax.set_xlabel('Real Std')
         ax.set_ylabel('Generated Std')
@@ -278,7 +278,7 @@ class Visualize(Evaluate):
         within_gt = corr[self.n_neurons::, self.n_neurons::][triu_idx]
         vmax = np.max([within_gen.max(), within_gt.max()])
         vmin = np.max([within_gen.min(), within_gt.min()])
-        ax.plot([vmin-.1, vmax+.1], [vmin-.1, vmax+.1], 'black')
+        ax.plot([vmin - .1, vmax + .1], [vmin - .1, vmax + .1], 'black')
         ax.plot(within_gt, within_gen, marker, label=model, markersize=8)
         ax.set_xlabel('Real Correlation')
         ax.set_ylabel('Generated Correlation')
@@ -307,7 +307,7 @@ class Visualize(Evaluate):
         within_gt = corr[self.n_neurons::, self.n_neurons::][triu_idx]
         vmax = np.max([within_gen.max(), within_gt.max()])
         vmin = np.max([within_gen.min(), within_gt.min()])
-        ax.plot([vmin-.1, vmax+.1], [vmin-.1, vmax+.1], 'black')
+        ax.plot([vmin - .1, vmax + .1], [vmin - .1, vmax + .1], 'black')
         ax.plot(within_gt, within_gen, marker, label=model, markersize=8)
         ax.set_xlabel('Real Noise Correlation')
         ax.set_ylabel('Generated Noise Correlation')

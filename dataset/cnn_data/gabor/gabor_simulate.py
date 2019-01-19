@@ -24,33 +24,55 @@ f2sz = 7
 nCell = 10
 sharedNoiseDim = 3
 
+
+def genGabor(sz, omega, theta, func=np.cos, K=np.pi):
+    radius = (int(sz[0] / 2.0), int(sz[1] / 2.0))
+    [x, y] = np.meshgrid(range(-radius[0], radius[0]+1), range(-radius[1], radius[1]+1))
+
+    x1 = x * np.cos(theta) + y * np.sin(theta)
+    y1 = -x * np.sin(theta) + y * np.cos(theta)
+
+    gauss = omega ** 2 / (4 * np.pi * K ** 2) * np.exp(- omega ** 2 / (8 * K ** 2) * (4 * x1 ** 2 + y1 ** 2))
+    #     myimshow(gauss)
+    sinusoid = func(omega * x1) * np.exp(K ** 2 / 2)
+    #     myimshow(sinusoid)
+    gabor = gauss * sinusoid
+    return gabor
+
+
 # Create filters
-x = norm.pdf(np.linspace(-1, 1, f1sz), loc=0, scale=.5)
-y = norm.pdf(np.linspace(-3, 1, f1sz), loc=0, scale=.3) - norm.pdf(np.linspace(-1, 3, f1sz), loc=0, scale=.5)
+xy1 = genGabor(sz=(11,11), omega=1, theta=np.pi/4, K=np.pi/1.5)
+xy2 = genGabor(sz=(11,11), omega=1, theta=0, K=np.pi/2)
+xy3 = genGabor(sz=(11,11), omega=.7, theta=-np.pi/4, K=np.pi/2)
 z = norm.pdf(np.linspace(-1.5,1.5,nT), loc=0, scale=.7)
-xy = np.matmul(x[:, np.newaxis], y[:, np.newaxis].T)
-xyz = np.tile(xy[np.newaxis, :, :], (nT, 1, 1)) * z[:, np.newaxis, np.newaxis]
-convFilt1 = 3 * xyz / np.linalg.norm(xyz.flatten())
+xyz1 = np.tile(xy1[np.newaxis, :, :], (nT, 1, 1)) * z[:, np.newaxis, np.newaxis]
+xyz2 = np.tile(xy2[np.newaxis, :, :], (nT, 1, 1)) * z[:, np.newaxis, np.newaxis]
+xyz3 = np.tile(xy3[np.newaxis, :, :], (nT, 1, 1)) * z[:, np.newaxis, np.newaxis]
+
+xyz1 = 3 * xyz1 / np.linalg.norm(xyz1.flatten())
+xyz2 = 3 * xyz2 / np.linalg.norm(xyz2.flatten())
+xyz3 = 3 * xyz3 / np.linalg.norm(xyz3.flatten())
+convFilt1 = .7 * np.concatenate((xyz1[np.newaxis, :], -xyz2[np.newaxis, :], xyz3[np.newaxis, :]))
 
 x = norm.pdf(np.linspace(-1, 1, f2sz), loc=0, scale=.3)
 y = norm.pdf(np.linspace(-1, 1, f2sz), loc=0, scale=.7)
 z = norm.pdf(np.linspace(-1, 1, nT - 2), loc=0, scale=.8)
 xy = np.matmul(x[:, np.newaxis], y[:, np.newaxis].T)
 xyz = np.tile(xy[np.newaxis, :, :], (nT - 2, 1, 1)) * z[:, np.newaxis, np.newaxis]
-convFilt2 = 3 * xyz / np.linalg.norm(xyz.flatten())
+convFilt2 = xyz / np.linalg.norm(xyz.flatten())
 
 fcSz = (2, 24, 24)
 fcFilt = np.zeros((nCell, *fcSz))
 for i in range(nCell):
-    x = norm.pdf(np.linspace(0, fcSz[1], fcSz[1]), loc=2 + i * 2, scale=4)
-    y = norm.pdf(np.linspace(0, fcSz[2], fcSz[2]), loc=2 + i * 2, scale=2)
+    x = norm.pdf(np.linspace(0, fcSz[1], fcSz[1]), loc=2 + i * 2, scale=2)
+    y = norm.pdf(np.linspace(0, fcSz[2], fcSz[2]), loc=2 + i * 2, scale=1.5)
     fcFilt[i, 0, :, :] = np.matmul(x[:, np.newaxis], y[:, np.newaxis].T)
 
     x = norm.pdf(np.linspace(0, fcSz[1], fcSz[1]), loc=2 + i * 2, scale=2)
-    y = norm.pdf(np.linspace(0, fcSz[2], fcSz[2]), loc=2 + i * 2, scale=5)
+    y = norm.pdf(np.linspace(0, fcSz[2], fcSz[2]), loc=2 + i * 2, scale=1.5)
     fcFilt[i, 1, :, :] = np.matmul(x[:, np.newaxis], y[:, np.newaxis].T)
 
-fcFilt = .07 * fcFilt.reshape((fcFilt.shape[0], -1))
+fcFilt = .5 * fcFilt.reshape((fcFilt.shape[0], -1))
 
 simulator = GeneratorCNN(nw=nW, nh=nH, nl=nT,
                          n_filters=(nF1, nF2),
@@ -67,20 +89,20 @@ simulator.eval()
 # x_conv2.shape: torch.Size([10, 2, 24, 24])
 # simulator.fc.weight.shape: torch.Size([10, 1152])
 
-simulator.conv1.weight.data = torch.tensor(convFilt1).unsqueeze(0).repeat((nF1, 1, 1, 1)).type(FloatTensor)
+simulator.conv1.weight.data = torch.tensor(convFilt1).type(FloatTensor)
 simulator.conv1.bias.data = torch.zeros(nF1).type(FloatTensor)
 
 simulator.conv2.weight.data = torch.tensor(convFilt2).unsqueeze(0).repeat((nF2, 1, 1, 1)).type(FloatTensor)
 simulator.conv2.bias.data = torch.zeros(nF2).type(FloatTensor)
 
 simulator.fc.weight.data = torch.tensor(fcFilt).type(FloatTensor)
-fcBias = torch.rand(nCell) - 4.0
+fcBias = torch.rand(nCell) - 6
 simulator.fc.bias.data = fcBias
 
-simulator.shared_noise.data = torch.tensor([0.0, 0.35, .2])
+simulator.shared_noise.data = torch.tensor([0.0, 0.0, .35])
 
 # Create stimulation matrix
-stimLength = 35000
+stimLength = 25000
 stim = (torch.rand(stimLength, nW, nH) - .5) * 2
 nRepeat = 300
 spikes = torch.zeros(nRepeat, stimLength, nCell).type(ShortTensor)

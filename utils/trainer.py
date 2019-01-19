@@ -205,6 +205,9 @@ class TrainerCGAN(object):
             # Temperature annealing
             if self.grad_mode == 'gs':
                 self.gumbel_softmax.temperature *= temp_anneal
+                if self.gumbel_softmax.temperature < .01:
+                    self.gumbel_softmax.temperature == .01
+
             torch.save(generator, self.log_folder + 'generator.pt')
             torch.save(discriminator, self.log_folder + 'discriminator.pt')
             np.save(self.log_folder + 'g_loss.npy', g_loss)
