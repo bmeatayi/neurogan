@@ -14,7 +14,6 @@ LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongT
 ShortTensor = torch.cuda.ShortTensor if torch.cuda.is_available() else torch.ShortTensor
 torch.set_default_tensor_type(FloatTensor)
 
-
 nW = 40
 nH = 40
 nT = 5
@@ -27,8 +26,8 @@ sharedNoiseDim = 3
 
 # Create filters
 x = norm.pdf(np.linspace(-1, 1, f1sz), loc=0, scale=.5)
-y = norm.pdf(np.linspace(-1, 1, f1sz), loc=0, scale=.2)
-z = norm.pdf(np.linspace(-1, 1, nT), loc=0, scale=.8)
+y = norm.pdf(np.linspace(-3, 1, f1sz), loc=0, scale=.3) - norm.pdf(np.linspace(-1, 3, f1sz), loc=0, scale=.5)
+z = norm.pdf(np.linspace(-1.5,1.5,nT), loc=0, scale=.7)
 xy = np.matmul(x[:, np.newaxis], y[:, np.newaxis].T)
 xyz = np.tile(xy[np.newaxis, :, :], (nT, 1, 1)) * z[:, np.newaxis, np.newaxis]
 convFilt1 = 3 * xyz / np.linalg.norm(xyz.flatten())
@@ -75,7 +74,7 @@ simulator.conv2.weight.data = torch.tensor(convFilt2).unsqueeze(0).repeat((nF2, 
 simulator.conv2.bias.data = torch.zeros(nF2).type(FloatTensor)
 
 simulator.fc.weight.data = torch.tensor(fcFilt).type(FloatTensor)
-fcBias = torch.rand(nCell) - 5.0
+fcBias = torch.rand(nCell) - 4.0
 simulator.fc.bias.data = fcBias
 
 simulator.shared_noise.data = torch.tensor([0.0, 0.35, .2])
