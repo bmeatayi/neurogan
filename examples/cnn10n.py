@@ -17,10 +17,10 @@ FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Flo
 LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
 torch.set_default_tensor_type(FloatTensor)
 
-spike_file = '..//dataset//cnn_data//shn_0_0_.3//spike.npy'
-stim_file = '..//dataset//cnn_data//shn_0_0_.3//stim.npy'
+spike_file = '..//dataset//cnn_data//gabor//spike.npy'
+stim_file = '..//dataset//cnn_data//gabor//stim.npy'
 
-log_folder = 'cnn_results//run28_gs1_ann0.992_ndisc5_lr2e-4_shn[0,1]=0_6layers//'
+log_folder = 'cnn_results//run37_gabornew_gs1_ann.994_ndisc5_lr1e-4_shn[0,1]=0_6layers//'
 
 batch_size = 128
 N = 10
@@ -63,11 +63,11 @@ solver = TrainerCGAN(optimizer_g=torch.optim.Adam,
                      gs_temp=1,
                      n_neuron=N)
 
-generator.shared_noise.data[0:2] = torch.tensor([0., 0.])
+generator.shared_noise.data[0:2] = torch.tensor([0.,0.])
 solver.train(generator=generator, discriminator=discriminator,
              train_loader=train_dataloader, val_loader=val_dataloader,
-             lr=2e-4, b1=.5, b2=0.999,
-             log_interval=1000, n_epochs=600,
+             lr=1e-4, b1=.5, b2=0.999,
+             log_interval=2000, n_epochs=1000,
              n_disc_train=5,
-             temp_anneal=0.992
+             temp_anneal=.994
              )
