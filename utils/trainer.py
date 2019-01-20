@@ -205,8 +205,8 @@ class TrainerCGAN(object):
             # Temperature annealing
             if self.grad_mode == 'gs':
                 self.gumbel_softmax.temperature *= temp_anneal
-                if self.gumbel_softmax.temperature < .01:
-                    self.gumbel_softmax.temperature == .01
+                # if self.gumbel_softmax.temperature < .005:
+                #     self.gumbel_softmax.temperature == .005
 
             torch.save(generator, self.log_folder + 'generator.pt')
             torch.save(discriminator, self.log_folder + 'discriminator.pt')
@@ -297,8 +297,8 @@ class TrainerCGAN(object):
         generator.eval()
         discriminator.eval()
 
-        fake_data = torch.zeros([0, 980, generator.n_t, generator.n_cell])
-        real_data = torch.zeros([0, 980, generator.n_t, generator.n_cell])
+        fake_data = None    # torch.zeros([0, 995, generator.n_t, generator.n_cell])
+        real_data = None    # torch.zeros([0, 995, generator.n_t, generator.n_cell])
 
         for j in range(n_sample):
             temp_gen = torch.zeros([0, generator.n_t, generator.n_cell])
@@ -314,6 +314,10 @@ class TrainerCGAN(object):
                     fake_sample[fake_sample < .5] = 0
                 temp_gen = torch.cat((temp_gen, fake_sample.detach()))
                 temp_real = torch.cat((temp_real, cnt.type(FloatTensor)))
+            if fake_data is None:
+                fake_data = torch.zeros([0, temp_gen.size(0), generator.n_t, generator.n_cell])
+                real_data = torch.zeros([0, temp_gen.size(0), generator.n_t, generator.n_cell])
+
             fake_data = torch.cat((fake_data, temp_gen.unsqueeze(0)))
             real_data = torch.cat((real_data, temp_real.unsqueeze(0)))
             del temp_gen, temp_real
