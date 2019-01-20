@@ -32,7 +32,8 @@ class Rebar:
         z_cond.requires_grad_(True)
         return z_cond
 
-    def step(self, logits, stim):
+    def step(self, logits, discriminator, stim):
+        self.discriminator = discriminator
         u = torch.rand_like(logits)
         z = self.concrete(logits=logits.detach(), u=u)
         spikes = z.gt(0.).type_as(z)
