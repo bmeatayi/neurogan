@@ -3,6 +3,66 @@ from torch.nn import functional as F
 
 
 class Rebar:
+    def __init__(self):
+        self.log_temp = torch.tensor([.5], requires_grad=True)
+        self.eta = torch.tensor([1.], requires_grad=True)
+        self.temp_optim = torch.optim.Adam([self.log_temp], lr=1e-4, betas=(.9, 0.999), eps=1e-06)
+        self.eta_optim = torch.optim.Adam([self.eta], lr=1e-4, betas=(.9, 0.999), eps=1e-06)
+
+        self.discriminator = None
+        self.compute_loss = F.binary_cross_entropy_with_logits
+        self.bernulli_sampler = torch.distributions.bernoulli.Bernoulli
+
+    def f(self, sp, stim):
+        logits = self.discriminator(sp, stim)
+        return F.binary_cross_entropy_with_logits(input=logits,
+                                                  target=torch.ones_like(logits))
+
+    def concrete(self, logits, u):
+        return logits + torch.log(u) - torch.log(1 - u)
+
+    def sigmoid_with_temp(self, z):
+        return torch.sigmoid(z / torch.exp(self.log_temp))
+
+    def get_z_cond(self, logits, spikes):
+        v = torch.rand_like(logits)
+        uprime = 1. - torch.sigmoid(logits)
+        noise_cond = spikes * (v * (1. - uprime) + uprime) + (1. - spikes) * v * uprime
+        z_cond = self.concrete(logits=logits, u=noise_cond)
+        z_cond.requires_grad_(True)
+        return z_cond
+
+    def step(self, logits, stim):
+        u = torch.rand_like(logits)
+        z = self.concrete(logits=logits.detach(), u=u)
+        spikes = z.gt(0.).type_as(z)
+        z.requires_grad_(True)
+
+        log_probs = self.bernulli_sampler(logits=logits.detach()).log_prob(spikes)
+        d_log_probs = torch.autograd.grad(log_probs, logits,
+                                          grad_outputs=torch.ones_like(log_probs),
+                                          retain_graph=False)[0]
+        with torch.no_grad():
+            loss_spikes = self.f(sp=spikes, stim=stim)
+
+        loss_relaxed = self.f(self.sigmoid_with_temp(z), stim)
+        d_loss_relaxed = torch.autograd.grad(outputs=loss_relaxed,
+                                             inputs=z,
+                                             create_graph=True,
+                                             retain_graph=True)
+
+        z_cond = self.get_z_cond(logits=logits.detach(), spikes=spikes)
+        loss_cond = self.f(self.sigmoid_with_temp(z_cond), stim=stim)
+        d_loss_cond = torch.autograd.grad(outputs=loss_cond,
+                                          inputs=z_cond,
+                                          create_graph=True,
+                                          retain_graph=True)
+        grads = (loss_spikes - self.eta * loss_cond) * d_log_probs + self.eta * (d_loss_relaxed - d_loss_cond)
+
+        logits.backward(grads.detach())
+
+
+class Rebar_old:
     def __init__(self, hp_lr=5e-4):
         self.temp = torch.tensor([.5], requires_grad=True)
         self.eta = torch.tensor([1.], requires_grad=True)
@@ -31,14 +91,14 @@ class Rebar:
         # expected_labels = torch.ones_like(spikes_logit_discriminator)
         # loss_spikes = F.binary_cross_entropy_with_logits(input=spikes_logit_discriminator,
         #                                                  target=expected_labels)
-        loss_spikes = -spikes_logit_discriminator#.mean()
+        loss_spikes = -spikes_logit_discriminator  # .mean()
 
         discriminator.zero_grad()
         relaxed_spikes = torch.sigmoid(relaxed_spikes_logit / self.temp)
         assert torch.sum(torch.isnan(relaxed_spikes)) == 0, "relaxed_spikes has a nan!"
         # loss_relaxed_spikes = F.binary_cross_entropy_with_logits(input=discriminator(relaxed_spikes, stim),
         #                                                          target=expected_labels)
-        loss_relaxed_spikes = -discriminator(relaxed_spikes, stim)#.mean()
+        loss_relaxed_spikes = -discriminator(relaxed_spikes, stim)  # .mean()
 
         assert torch.sum(torch.isnan(loss_relaxed_spikes)) == 0, "loss_relaxed_spikes has a nan!"
         d_loss_relaxed = torch.autograd.grad(
@@ -51,7 +111,7 @@ class Rebar:
         # loss_relaxed_reparam_spikes = F.binary_cross_entropy_with_logits(
         #     input=discriminator(relaxed_reparam_spikes, stim),
         #     target=expected_labels)
-        loss_relaxed_reparam_spikes = -discriminator(relaxed_reparam_spikes, stim)#.mean()
+        loss_relaxed_reparam_spikes = -discriminator(relaxed_reparam_spikes, stim)  # .mean()
         if torch.sum(torch.isnan(loss_relaxed_reparam_spikes)) != 0:
             print(relaxed_reparam_spikes, loss_relaxed_reparam_spikes)
         assert torch.sum(torch.isnan(loss_relaxed_reparam_spikes)) == 0, "loss_relaxed_reparam_spikes has a nan!"
