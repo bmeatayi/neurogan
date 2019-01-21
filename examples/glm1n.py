@@ -18,7 +18,7 @@ from utils.cgan_dataset import GanDataset
 spike_file = '..//dataset//GLM_1D_1n//data.npy'
 stim_file = '..//dataset//GLM_1D_1n//stim.npy'
 
-log_folder = 'glm_results//run09_rebar_ndisc5_lr5e-4_hp_lr=5e-3//'
+log_folder = 'glm_results//run12_rebarNEW_ndisc5_lr1e-3_hp_lr=1e-3//'
 
 batch_size = 128
 N = 1
@@ -56,7 +56,7 @@ solver = TrainerCGAN(optimizer_g=torch.optim.Adam,
 
 solver.train(generator=generator, discriminator=discriminator,
              train_loader=train_dataloader, val_loader=val_dataloader,
-             lr=5e-4, b1=.5, b2=0.999,
+             lr=1e-3, b1=.5, b2=0.999,
              log_interval=4000, n_epochs=4000,
              n_disc_train=5,
              temp_anneal=None
