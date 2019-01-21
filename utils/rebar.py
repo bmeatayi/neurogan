@@ -6,8 +6,8 @@ class Rebar:
     def __init__(self):
         self.log_temp = torch.tensor([.5], requires_grad=True)
         self.eta = torch.tensor([1.], requires_grad=True)
-        self.temp_optim = torch.optim.Adam([self.log_temp], lr=1e-4, betas=(.9, 0.999), eps=1e-06)
-        self.eta_optim = torch.optim.Adam([self.eta], lr=1e-4, betas=(.9, 0.999), eps=1e-06)
+        self.temp_optim = torch.optim.Adam([self.log_temp], lr=1e-3, betas=(.9, 0.999), eps=1e-06)
+        self.eta_optim = torch.optim.Adam([self.eta], lr=1e-3, betas=(.9, 0.999), eps=1e-06)
 
         self.discriminator = None
         self.compute_loss = F.binary_cross_entropy_with_logits
