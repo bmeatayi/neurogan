@@ -20,7 +20,7 @@ torch.set_default_tensor_type(FloatTensor)
 spike_file = '..//dataset//cnn_data//gabor//spike.npy'
 stim_file = '..//dataset//cnn_data//gabor//stim.npy'
 
-log_folder = 'cnn_results//run37_gabornew_gs1_ann.994_ndisc5_lr1e-4_shn[0,1]=0_6layers//'
+log_folder = 'cnn_results//run38_gabornew_gs1_ann.994_ndisc5_lr1e-4_shn[0,1]=0_6layers//'
 
 batch_size = 128
 N = 10
@@ -67,7 +67,7 @@ generator.shared_noise.data[0:2] = torch.tensor([0.,0.])
 solver.train(generator=generator, discriminator=discriminator,
              train_loader=train_dataloader, val_loader=val_dataloader,
              lr=1e-4, b1=.5, b2=0.999,
-             log_interval=2000, n_epochs=1000,
+             log_interval=4000, n_epochs=1500,
              n_disc_train=5,
              temp_anneal=.994
              )
