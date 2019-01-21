@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from utils.evaluation import Visualize
 from modules.gumbel_softmax_binary import GumbelSoftmaxBinary
-# from utils.rebar import Rebar
+from utils.rebar import Rebar
 from utils.plot_props import PlotProps
 
 FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
@@ -16,7 +16,10 @@ LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongT
 torch.set_default_tensor_type(FloatTensor)
 # plt.ioff()  # Deactivate interactive mode to avoid error on cluster run
 import matplotlib
-matplotlib.use('Agg') # Avoiding tkinter error on local machine. You may need to comment it while running on the server.
+
+matplotlib.use(
+    'Agg')  # Avoiding tkinter error on local machine. You may need to comment it while running on the server.
+
 
 class TrainerCGAN(object):
     def __init__(self, optimizer_g=torch.optim.Adam,
@@ -189,7 +192,8 @@ class TrainerCGAN(object):
                 self.d_loss_history.append(d_loss)
                 generator.train()
 
-                print(f"[Epoch {epoch}/{n_epochs}] [Batch {i}/{len(train_loader)}] [D loss: {d_loss}] [G loss: {g_loss}]")
+                print(
+                    f"[Epoch {epoch}/{n_epochs}] [Batch {i}/{len(train_loader)}] [D loss: {d_loss}] [G loss: {g_loss}]")# [Temp: {self.gumbel_softmax.temperature}]")
                 self.logger.add_scalar('d_loss', d_loss)
                 self.logger.add_scalar('g_loss', g_loss)
                 batches_done = epoch * len(train_loader) + i
@@ -201,11 +205,14 @@ class TrainerCGAN(object):
             # Temperature annealing
             if self.grad_mode == 'gs':
                 self.gumbel_softmax.temperature *= temp_anneal
+                # if self.gumbel_softmax.temperature < .005:
+                #     self.gumbel_softmax.temperature == .005
+
             torch.save(generator, self.log_folder + 'generator.pt')
             torch.save(discriminator, self.log_folder + 'discriminator.pt')
             np.save(self.log_folder + 'g_loss.npy', g_loss)
             np.save(self.log_folder + 'd_loss.npy', d_loss)
-            del spike, stim, inputs, real_sample, fake_logits, fake_samples, pred_fake, pred_real
+            del spike, stim, inputs, real_sample, fake_logits, pred_fake, pred_real
             del d_real_loss, d_fake_loss
 
         self.log_result(generator, discriminator, batches_done, val_loader=val_loader)
@@ -215,7 +222,7 @@ class TrainerCGAN(object):
         self.logger.close()
         torch.save(generator, self.log_folder + 'generator.pt')
         torch.save(discriminator, self.log_folder + 'discriminator.pt')
-        np.save(self.log_folder+'g_loss.npy', g_loss)
+        np.save(self.log_folder + 'g_loss.npy', g_loss)
         np.save(self.log_folder + 'd_loss.npy', d_loss)
 
     def _logit2sample(self, fake_logits):
@@ -275,14 +282,11 @@ class TrainerCGAN(object):
 
         if self.grad_mode == 'reinforce':
             log_probability = self.sampler.log_prob(fake_samples)
-            d_log_probability = autograd.grad([log_probability], [fake_logits],
-                                              grad_outputs=torch.ones_like(log_probability))[0]
-            # TODO: Compute probability from the vector g_loss (without getting its mean) and multiply
-            #  it with derivative of log probability
-
+            d_log_probability = autograd.grad(log_probability, fake_logits,
+                                              grad_outputs=torch.ones_like(log_probability),
+                                              retain_graph=False)[0]
             g_loss = g_loss.detach() * d_log_probability.detach()
 
-            # g_loss = (g_loss.detach() * log_probability).mean()
         elif self.grad_mode is 'rebar':
             pass
             # TODO: Implement REBAR
@@ -293,8 +297,8 @@ class TrainerCGAN(object):
         generator.eval()
         discriminator.eval()
 
-        fake_data = torch.zeros([0, 995, generator.n_t, generator.n_cell])
-        real_data = torch.zeros([0, 995, generator.n_t, generator.n_cell])
+        fake_data = None    # torch.zeros([0, 995, generator.n_t, generator.n_cell])
+        real_data = None    # torch.zeros([0, 995, generator.n_t, generator.n_cell])
 
         for j in range(n_sample):
             temp_gen = torch.zeros([0, generator.n_t, generator.n_cell])
@@ -310,6 +314,10 @@ class TrainerCGAN(object):
                     fake_sample[fake_sample < .5] = 0
                 temp_gen = torch.cat((temp_gen, fake_sample.detach()))
                 temp_real = torch.cat((temp_real, cnt.type(FloatTensor)))
+            if fake_data is None:
+                fake_data = torch.zeros([0, temp_gen.size(0), generator.n_t, generator.n_cell])
+                real_data = torch.zeros([0, temp_gen.size(0), generator.n_t, generator.n_cell])
+
             fake_data = torch.cat((fake_data, temp_gen.unsqueeze(0)))
             real_data = torch.cat((real_data, temp_real.unsqueeze(0)))
             del temp_gen, temp_real
@@ -331,11 +339,11 @@ class TrainerCGAN(object):
         viz.std(fake_data, '')
         pdf.savefig(bbox_inches='tight')
 
-        viz.corr(fake_data, model='')
-        pdf.savefig(bbox_inches='tight')
-
-        viz.noise_corr(fake_data, model='')
-        pdf.savefig(bbox_inches='tight')
+        # viz.corr(fake_data, model='')
+        # pdf.savefig(bbox_inches='tight')
+        #
+        # viz.noise_corr(fake_data, model='')
+        # pdf.savefig(bbox_inches='tight')
 
         # real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
         # real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
@@ -409,32 +417,32 @@ class TrainerCGAN(object):
         # plt.close()
 
         # PLOT FILTERS
-        pdf = PdfPages(self.log_folder + 'filt_iter_' + str(batches_done) + '.pdf')
-        conv1filt = generator.conv1.weight.data.detach().cpu().numpy()
-        conv2filt = generator.conv2.weight.data.detach().cpu().numpy()
-        fcFilt = generator.fc.weight.detach().cpu().view(-1, 2, 24, 24).numpy()
-
-        fig, ax = plt.subplots(*conv1filt.shape[0:2], figsize=(10, 5))
-        vmin, vmax = conv1filt.min(), conv1filt.max()
-        for (filtRow, axRow) in zip(conv1filt, ax):
-            for (filt, axis) in zip(filtRow, axRow):
-                axis.imshow(filt, vmin=vmin, vmax=vmax)
-        pdf.savefig(bbox_inches='tight')
-
-        fig, ax = plt.subplots(*conv2filt.shape[0:2], figsize=(10, 5))
-        vmin, vmax = conv2filt.min(), conv2filt.max()
-        for (filtRow, axRow) in zip(conv2filt, ax):
-            for (filt, axis) in zip(filtRow, axRow):
-                axis.imshow(filt, vmin=vmin, vmax=vmax)
-        pdf.savefig(bbox_inches='tight')
-
-        fig, ax = plt.subplots(*fcFilt.shape[0:2], figsize=(10, 20))
-        vmin, vmax = fcFilt.min(), fcFilt.max()
-        for (filtRow, axRow) in zip(fcFilt, ax):
-            for (filt, axis) in zip(filtRow, axRow):
-                axis.imshow(filt, vmin=vmin, vmax=vmax)
-        pdf.savefig(bbox_inches='tight')
-        pdf.close()
+        # pdf = PdfPages(self.log_folder + 'filt_iter_' + str(batches_done) + '.pdf')
+        # conv1filt = generator.conv1.weight.data.detach().cpu().numpy()
+        # conv2filt = generator.conv2.weight.data.detach().cpu().numpy()
+        # fcFilt = generator.fc.weight.detach().cpu().view(-1, 2, 24, 24).numpy()
+        #
+        # fig, ax = plt.subplots(*conv1filt.shape[0:2], figsize=(10, 5))
+        # vmin, vmax = conv1filt.min(), conv1filt.max()
+        # for (filtRow, axRow) in zip(conv1filt, ax):
+        #     for (filt, axis) in zip(filtRow, axRow):
+        #         axis.imshow(filt, vmin=vmin, vmax=vmax)
+        # pdf.savefig(bbox_inches='tight')
+        #
+        # fig, ax = plt.subplots(*conv2filt.shape[0:2], figsize=(10, 5))
+        # vmin, vmax = conv2filt.min(), conv2filt.max()
+        # for (filtRow, axRow) in zip(conv2filt, ax):
+        #     for (filt, axis) in zip(filtRow, axRow):
+        #         axis.imshow(filt, vmin=vmin, vmax=vmax)
+        # pdf.savefig(bbox_inches='tight')
+        #
+        # fig, ax = plt.subplots(*fcFilt.shape[0:2], figsize=(10, 20))
+        # vmin, vmax = fcFilt.min(), fcFilt.max()
+        # for (filtRow, axRow) in zip(fcFilt, ax):
+        #     for (filt, axis) in zip(filtRow, axRow):
+        #         axis.imshow(filt, vmin=vmin, vmax=vmax)
+        # pdf.savefig(bbox_inches='tight')
+        # pdf.close()
         plt.close()
 
         generator.train()
