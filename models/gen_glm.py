@@ -5,7 +5,7 @@ import torch
 
 class GeneratorGLM(nn.Module):
     def __init__(self, latent_dim=1, stim_shape=(1, 1, 1), out_shape=(1, 1),
-                 sampler=torch.distributions.bernoulli.Bernoulli):
+                 sampler=torch.distributions.bernoulli.Bernoulli, is_shared_noise=False):
         r"""
         GLM based generator with shared noise
         Args:
@@ -21,6 +21,7 @@ class GeneratorGLM(nn.Module):
         self.n_t, self.n_cell = out_shape
         self.glm_out_shape = np.prod(out_shape)
         self.sampler = sampler
+        self.is_shared_noise = is_shared_noise
 
         self.GLM = nn.Linear(self.in_dim, self.glm_out_shape)
         self.shn_layer = nn.Linear(self.latent_dim, 1, bias=False)
@@ -28,7 +29,9 @@ class GeneratorGLM(nn.Module):
 
     def forward(self, z, stim):
         stim = stim.view(stim.size(0), -1)
-        x = self.GLM(stim) + self.shn_layer(z)
+        x = self.GLM(stim)
+        if self.is_shared_noise:
+            x = x + self.shn_layer(z)
         return x.view(x.size(0), self.n_t, self.n_cell)
 
     def generate(self, z, stim):
