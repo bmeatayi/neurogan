@@ -100,8 +100,9 @@ class Evaluate:
         generated = self._check(generated)
         groundtruth_shuffled = np.copy(self.groundtruth)
         np.random.shuffle(groundtruth_shuffled)
-        return np.corrcoef(generated.reshape(-1, self.n_neurons).T,
-                           groundtruth_shuffled.reshape(-1, self.n_neurons).T).T
+        corr_shuffled = np.corrcoef(generated.reshape(-1, self.n_neurons).T,
+                                    groundtruth_shuffled.reshape(-1, self.n_neurons).T).T
+        return np.rot90(corr_shuffled)
 
     def noise_correlation(self, generated):
         r"""
