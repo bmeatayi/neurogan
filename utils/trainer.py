@@ -11,7 +11,7 @@ from modules.gumbel_softmax_binary import GumbelSoftmaxBinary
 from utils.rebar import Rebar
 from utils.plot_props import PlotProps
 
-FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+FloatTensor = torch.cuda.DoubleTensor if torch.cuda.is_available() else torch.DoubleTensor
 LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
 torch.set_default_tensor_type(FloatTensor)
 # plt.ioff()  # Deactivate interactive mode to avoid error on cluster run
@@ -339,29 +339,30 @@ class TrainerCGAN(object):
         viz.std(fake_data, '')
         pdf.savefig(bbox_inches='tight')
 
-        # viz.corr(fake_data, model='')
-        # pdf.savefig(bbox_inches='tight')
-        #
-        # viz.noise_corr(fake_data, model='')
-        # pdf.savefig(bbox_inches='tight')
+        viz.corr(fake_data, model='')
+        pdf.savefig(bbox_inches='tight')
 
-        # real_glm_filters = np.load('..//dataset//GLM_2D_30n_shared_noise//W.npy')
-        # real_glm_biases = np.load('..//dataset//GLM_2D_30n_shared_noise//bias.npy')
-        # real_w_shared_noise = -.5
+        viz.noise_corr(fake_data, model='')
+        pdf.savefig(bbox_inches='tight')
+
+        real_glm_filters = np.load('..//dataset//GLM_2D_10n_shared_noise//W.npy')
+        real_glm_biases = np.load('..//dataset//GLM_2D_10n_shared_noise//bias.npy')
+        real_w_shared_noise = .3
         #
-        # gen_glm_filters = generator.GLM.weight.detach().cpu().numpy().reshape(real_glm_filters.shape)
-        # gen_glm_biases = generator.GLM.bias.detach().cpu().numpy()
-        # gen_w_shared_noise = generator.shn_layer.weight.detach().cpu().numpy()
-        # fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-        # ax[0].set_title('GLM filter parameters')
-        # ax[0].plot([-1, 2], [-1, 2], 'black')
-        # ax[0].plot(real_glm_filters.flatten(), np.flip(gen_glm_filters, axis=(1, 2)).flatten(), '.')
-        # ax[0].plot(real_w_shared_noise, gen_w_shared_noise, '*', markersize=5, label='Shared noise scale')
-        #
-        # ax[1].set_title('GLM biases')
-        # ax[1].plot([-6, -3], [-6, -3], 'black')
-        # ax[1].plot(real_glm_biases, gen_glm_biases, '.')
-        # pdf.savefig(bbox_inches='tight')
+        gen_glm_filters = generator.GLM.weight.detach().cpu().numpy().reshape(real_glm_filters.shape)
+        gen_glm_biases = generator.GLM.bias.detach().cpu().numpy()
+        gen_w_shared_noise = generator.shn_layer.weight.detach().cpu().numpy()
+
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        ax[0].set_title('GLM filter parameters')
+        ax[0].plot([-1, 2], [-1, 2], 'black')
+        ax[0].plot(real_glm_filters.flatten(), np.flip(gen_glm_filters, axis=(1, 2)).flatten(), '.')
+        ax[0].plot(real_w_shared_noise, gen_w_shared_noise, '*', markersize=5, label='Shared noise scale')
+
+        ax[1].set_title('GLM biases')
+        ax[1].plot([-4, -1], [-4, -1], 'black')
+        ax[1].plot(real_glm_biases, gen_glm_biases, '.')
+        pdf.savefig(bbox_inches='tight')
         #
         viz.mean_per_bin(fake_data, 'GAN 1', neurons=[], label='Neuron ', figsize=[15, 10])
         pdf.savefig(bbox_inches='tight')
