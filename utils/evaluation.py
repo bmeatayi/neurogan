@@ -87,6 +87,9 @@ class Evaluate:
     def signal_correlation(self, generated):
         r"""
         Computes signal correlation between pairs of neurons
+        Reference:      Lyamzin, D. R., Macke, J. H., & Lesica, N. A. (2010). Modeling population spike trains with
+                        specified time-varying spike rates, trial-to-trial variability, and pairwise signal and noise
+                        correlations
         Args:
             generated (ndarray): generated spike data
                     (#repeats, #bins, #neurons)
