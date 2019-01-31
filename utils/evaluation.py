@@ -95,7 +95,10 @@ class Evaluate:
             ndarray: Square matrix of size (2 * n_neurons, 2 * n_neurons).
         """
         generated = self._check(generated)
-        return np.corrcoef(generated.mean(axis=0).T, self.groundtruth.mean(axis=0).T)
+        groundtruth_shuffled = np.copy(self.groundtruth)
+        np.random.shuffle(groundtruth_shuffled)
+        return np.corrcoef(generated.reshape(-1, self.n_neurons).T,
+                           groundtruth_shuffled.reshape(-1, self.n_neurons).T).T
 
     def noise_correlation(self, generated):
         r"""
@@ -149,6 +152,18 @@ class Evaluate:
         generated = np.array(generated)
         assert generated.shape == self.groundtruth.shape, "Size mismatch!"
         return generated
+
+    def _scramble(a, axis=-1):
+        """
+        Return an array with the values of `a` independently shuffled along the
+        given axis
+        Source:https://stackoverflow.com/questions/36272992/numpy-random-shuffle-by-row-independently
+        """
+        b = a.swapaxes(axis, -1)
+        n = a.shape[axis]
+        idx = np.random.choice(n, n, replace=False)
+        b = b[..., idx]
+        return b.swapaxes(axis, -1)
 
 
 class Visualize(Evaluate):
