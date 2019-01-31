@@ -6,8 +6,8 @@ class Rebar:
     def __init__(self):
         self.log_temp = torch.tensor([.5], requires_grad=True)
         self.eta = torch.tensor([1.], requires_grad=True)
-        self.temp_optim = torch.optim.Adam([self.log_temp], lr=1e-3, betas=(.9, 0.999), eps=1e-06)
-        self.eta_optim = torch.optim.Adam([self.eta], lr=1e-3, betas=(.9, 0.999), eps=1e-06)
+        self.temp_optim = torch.optim.Adam([self.log_temp], lr=1e-3, betas=(.9, 0.999), eps=1e-6)
+        self.eta_optim = torch.optim.Adam([self.eta], lr=1e-3, betas=(.9, 0.999), eps=1e-6)
 
         self.discriminator = None
         self.compute_loss = F.binary_cross_entropy_with_logits
@@ -67,7 +67,9 @@ class Rebar:
                                           create_graph=True,
                                           retain_graph=True)[0]
 
-        grads = (loss_spikes - self.eta * loss_cond) * d_log_probs.squeeze(2) + self.eta * (d_loss_relaxed - d_loss_cond).squeeze(2)
+        # grads = (loss_spikes - self.eta * loss_cond) * d_log_probs.squeeze(2) + self.eta * (d_loss_relaxed - d_loss_cond).squeeze(2)
+        grads = (loss_spikes - self.eta * loss_cond).unsqueeze(2) * d_log_probs + self.eta * (
+                    d_loss_relaxed - d_loss_cond)
         var_loss = (grads ** 2).mean()  # CHECK the dimensions
         var_loss.backward()
         print(
@@ -78,6 +80,6 @@ class Rebar:
         self.eta_optim.step()
         self.temp_optim.step()
 
-        logits.backward(grads.unsqueeze(1).detach())
+        logits.backward(grads.detach())
 
         return loss_spikes.mean().cpu().numpy()
