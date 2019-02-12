@@ -9,7 +9,7 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 from models.gen_cnn import GeneratorCNN
 
-FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+FloatTensor = torch.cuda.DoubleTensor if torch.cuda.is_available() else torch.DoubleTensor
 LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
 ShortTensor = torch.cuda.ShortTensor if torch.cuda.is_available() else torch.ShortTensor
 torch.set_default_tensor_type(FloatTensor)
@@ -55,7 +55,8 @@ fcFilt = .07 * fcFilt.reshape((fcFilt.shape[0], -1))
 simulator = GeneratorCNN(nw=nW, nh=nH, nl=nT,
                          n_filters=(nF1, nF2),
                          kernel_size=(f1sz, f2sz),
-                         n_cell=nCell)
+                         n_cell=nCell,
+                         is_shared_noise=[False, False, True])
 simulator(torch.rand(size=(10, 3)), torch.rand(size=(10, 5, 40, 40)))
 simulator.eval()
 # simulator.conv1.weight.shape: torch.Size([3, 5, 11, 11])
@@ -74,15 +75,15 @@ simulator.conv2.weight.data = torch.tensor(convFilt2).unsqueeze(0).repeat((nF2, 
 simulator.conv2.bias.data = torch.zeros(nF2).type(FloatTensor)
 
 simulator.fc.weight.data = torch.tensor(fcFilt).type(FloatTensor)
-fcBias = torch.rand(nCell) - 4.0
+fcBias = torch.rand(nCell) - 4.5
 simulator.fc.bias.data = fcBias
 
-simulator.shared_noise.data = torch.tensor([0.0, 0.35, .2])
+simulator.shared_noise.data = torch.tensor([0.0, 0.0, .8])
 
 # Create stimulation matrix
-stimLength = 35000
+stimLength = 25000
 stim = (torch.rand(stimLength, nW, nH) - .5) * 2
-nRepeat = 300
+nRepeat = 200
 spikes = torch.zeros(nRepeat, stimLength, nCell).type(ShortTensor)
 for i in range(stimLength - nT + 1):
     print(f"{i}/{stimLength}")
