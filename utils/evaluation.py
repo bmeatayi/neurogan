@@ -99,10 +99,18 @@ class Evaluate:
         """
         generated = self._check(generated)
         groundtruth_shuffled = np.copy(self.groundtruth)
+
         np.random.shuffle(groundtruth_shuffled)
-        corr_shuffled = np.corrcoef(generated.reshape(-1, self.n_neurons).T,
-                                    groundtruth_shuffled.reshape(-1, self.n_neurons).T).T
-        return np.rot90(corr_shuffled)
+
+        generated_shuffled = np.copy(generated)
+        np.random.shuffle(generated_shuffled)
+        gt_corr_shuffled = np.corrcoef(self.groundtruth.reshape(-1, self.n_neurons).T,
+                                       groundtruth_shuffled.reshape(-1, self.n_neurons).T).T
+
+        gen_corr_shuffled = np.corrcoef(generated.reshape(-1, self.n_neurons).T,
+                                        generated_shuffled.reshape(-1, self.n_neurons).T).T
+
+        return gt_corr_shuffled, gen_corr_shuffled
 
     def noise_correlation(self, generated):
         r"""
@@ -320,14 +328,24 @@ class Visualize(Evaluate):
         """
         if not ax:
             ax = self.plot.init_subplot('Pairwise Noise Correlation')
-        corr = self.noise_correlation(generated)
-        triu_idx = np.triu_indices(n=self.n_neurons, k=1)
-        within_gen = corr[:self.n_neurons, :self.n_neurons][triu_idx]
-        within_gt = corr[self.n_neurons::, self.n_neurons::][triu_idx]
-        vmax = np.max([within_gen.max(), within_gt.max()])
-        vmin = np.max([within_gen.min(), within_gt.min()])
-        ax.plot([vmin - .1, vmax + .1], [vmin - .1, vmax + .1], 'black')
-        ax.plot(within_gt, within_gen, marker, label=model, markersize=8)
+        gt_corr, gen_corr = self.signal_correlation(generated)
+
+        triu_idx_tot = np.triu_indices(n=self.n_neurons, k=1)
+        triu_idx_sig = np.triu_indices(n=self.n_neurons*2, k=self.n_neurons+1)
+
+        tot_corr_gen = gen_corr[triu_idx_tot]
+        tot_corr_gt = gt_corr[triu_idx_tot]
+
+        sig_corr_gen = gen_corr[triu_idx_sig]
+        sig_corr_gt = gt_corr[triu_idx_sig]
+
+        noise_corr_gen = tot_corr_gen - sig_corr_gen
+        noise_corr_gt = tot_corr_gt - sig_corr_gt
+
+        vmax = np.max([noise_corr_gen.max(), noise_corr_gt.max()])
+        vmin = np.max([noise_corr_gen.min(), noise_corr_gt.min()])
+        ax.plot([-1, 1], [-1, 1], 'black')
+        ax.plot(noise_corr_gt, noise_corr_gen, marker, label=model, markersize=8)
         ax.set_xlabel('Real Noise Correlation')
         ax.set_ylabel('Generated Noise Correlation')
         ax.legend()
