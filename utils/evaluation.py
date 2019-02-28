@@ -344,7 +344,7 @@ class Visualize(Evaluate):
 
         vmax = np.max([noise_corr_gen.max(), noise_corr_gt.max()])
         vmin = np.max([noise_corr_gen.min(), noise_corr_gt.min()])
-        ax.plot([-1, 1], [-1, 1], 'black')
+        ax.plot([vmin-.1, vmax+.1], [vmin-.1, vmax+.1], 'black')
         ax.plot(noise_corr_gt, noise_corr_gen, marker, label=model, markersize=8)
         ax.set_xlabel('Real Noise Correlation')
         ax.set_ylabel('Generated Noise Correlation')
