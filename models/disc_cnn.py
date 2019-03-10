@@ -131,7 +131,6 @@ class DiscriminatorCNN(nn.Module):
 
         self.dense_layers = nn.Sequential(dense_layers)
 
-
     def forward(self, spike, stim):
         x_conv = F.relu(self.conv1(stim))
         x_conv = F.relu(self.conv2(x_conv))
@@ -141,7 +140,7 @@ class DiscriminatorCNN(nn.Module):
     def _compute_fc_in(self):
         x = np.random.random([1, self.nL, self.nW, self.nH])
         x = torch.tensor(x)
-        x = self.conv1(x.float())
+        x = self.conv1(x)
         x = self.conv2(x)
         conv2shape = x.size()[1:]
         x = x.view(x.size(0), -1)
