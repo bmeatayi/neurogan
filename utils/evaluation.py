@@ -351,6 +351,38 @@ class Visualize(Evaluate):
         ax.legend()
         return ax
 
+    def signal_corr(self, generated, model, ax=None, marker='.'):
+        """Plots the signal correlation between neurons of
+         the generated data vs. the groundtruth data.
+
+        Args:
+            generated (array): Generated spike data
+                (#repeats, #bins, #neurons)
+            model (str): The name of the model.
+            ax (object, optional): An existing axis object.
+                Defaults to None which creates a new axis.
+            marker (str): Defaults to '.'.
+        Returns:
+            object: Axis object.
+        """
+        if not ax:
+            ax = self.plot.init_subplot('Pairwise Signal Correlation')
+        gt_corr, gen_corr = self.signal_correlation(generated)
+
+        triu_idx_sig = np.triu_indices(n=self.n_neurons*2, k=self.n_neurons+1)
+
+        sig_corr_gen = gen_corr[triu_idx_sig]
+        sig_corr_gt = gt_corr[triu_idx_sig]
+
+        vmax = np.max([sig_corr_gen.max(), sig_corr_gt.max()])
+        vmin = np.max([sig_corr_gen.min(), sig_corr_gt.min()])
+        ax.plot([vmin-.1, vmax+.1], [vmin-.1, vmax+.1], 'black')
+        ax.plot(sig_corr_gt, sig_corr_gen, marker, label=model, markersize=8)
+        ax.set_xlabel('Real Signal Correlation')
+        ax.set_ylabel('Generated Signal Correlation')
+        ax.legend()
+        return ax
+
     def spiketrains(self, generated, neurons=[0, 1], trial_avg=False, figsize=[12, 3], aspect='auto', labels=False):
         """Plots an overview of the spiketrains.
     Args:
