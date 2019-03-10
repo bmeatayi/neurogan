@@ -223,8 +223,8 @@ class TrainerCGAN(object):
         self.logger.close()
         torch.save(generator, self.log_folder + 'generator.pt')
         torch.save(discriminator, self.log_folder + 'discriminator.pt')
-        np.save(self.log_folder + 'g_loss.npy', g_loss)
-        np.save(self.log_folder + 'd_loss.npy', d_loss)
+        np.save(self.log_folder + 'g_loss.npy', self.g_loss_history)
+        np.save(self.log_folder + 'd_loss.npy', self.d_loss_history)
 
     def _logit2sample(self, fake_logits):
         r"""
