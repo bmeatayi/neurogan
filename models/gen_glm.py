@@ -24,7 +24,7 @@ class GeneratorGLM(nn.Module):
         self.is_shared_noise = is_shared_noise
 
         self.GLM = nn.Linear(self.in_dim, self.glm_out_shape)
-        self.shn_layer = nn.Linear(self.latent_dim, 1, bias=False)
+        self.shn_layer = nn.Linear(self.latent_dim, self.n_cell, bias=False)
         print(self)
 
     def forward(self, z, stim):
