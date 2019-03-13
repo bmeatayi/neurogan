@@ -288,9 +288,6 @@ class TrainerCGAN(object):
                                               retain_graph=False)[0]
             g_loss = g_loss.detach() * d_log_probability.detach()
 
-        elif self.grad_mode is 'rebar':
-            pass
-            # TODO: Implement REBAR
         return g_loss
 
     def generate_data(self, generator, discriminator, val_loader, n_sample=200, is_save=False):
