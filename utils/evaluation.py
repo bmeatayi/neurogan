@@ -195,7 +195,7 @@ class Visualize(Evaluate):
     def __init__(self, groundtruth, time=None):
         super(Visualize, self).__init__(groundtruth, time)
 
-    def mean(self, generated, model, ax=None, marker='.'):
+    def mean(self, generated, model, ax=None, marker='.', markersize=10):
         """Plots the spike-count-average for each neuron of
         groundtruth vs. the generated data.
 
@@ -210,14 +210,14 @@ class Visualize(Evaluate):
             object: Axis object.
         """
         if not ax:
-            ax = self.plot.init_subplot('Mean Firing Rates')
+            ax = self.plot.init_subplot('Mean Firing probabilities')
         model_mean, gt_mean = self.spike_count_average(generated)
         vmax = np.max([model_mean.max(), gt_mean.max()])
         ax.plot([0, vmax + .2], [0, vmax + .2], 'black')
-        ax.plot(gt_mean, model_mean, marker, label=model, markersize=6)
-        ax.set_xlabel('Real Mean Firing Rate')
-        ax.set_ylabel('Generated Mean Firing Rate')
-        ax.legend()
+        ax.plot(gt_mean, model_mean, marker, label=model, markersize=markersize)
+        # ax.set_xlabel('Real Mean Firing probabilities')
+        # ax.set_ylabel('Generated Mean Firing probabilities')
+        # ax.legend()
         return ax
 
     def std(self, generated, model, ax=None, marker='.'):
@@ -239,7 +239,7 @@ class Visualize(Evaluate):
         model_std, gt_std = self.spike_count_std(generated)
         vmax = np.max([model_std.max(), gt_std.max()])
         ax.plot([0, vmax + .2], [0, vmax + .2], 'black')
-        ax.plot(gt_std, model_std, marker, label=model, markersize=6)
+        ax.plot(gt_std, model_std, marker, label=model, markersize=13)
         ax.set_xlabel('Real Std')
         ax.set_ylabel('Generated Std')
         ax.legend()
@@ -278,12 +278,12 @@ class Visualize(Evaluate):
             if isinstance(label, str):
                 ax.text(0.65, 0.9, '%s%s' % (label, neuron), transform=ax.transAxes, ha='right',
                         fontsize='small')
-        fig.suptitle('Mean per Bin', y=1.02)
+        fig.suptitle('Mean per Bin', y=1.0)
         fig.tight_layout()
         fig.text(0.5, 0.001, 'Expected Mean (a.u.)', ha='center')
         fig.text(0.001, 0.5, 'Generated Mean (a.u.)', va='center', rotation='vertical')
 
-    def corr(self, generated, model, ax=None, marker='.'):
+    def corr(self, generated, model, ax=None, marker='.', markersize=10):
         """Plots the intrinsic correlation between neurons of
          the generated data vs. the groundtruth data.
 
@@ -306,13 +306,13 @@ class Visualize(Evaluate):
         vmax = np.max([within_gen.max(), within_gt.max()])
         vmin = np.max([within_gen.min(), within_gt.min()])
         ax.plot([vmin - .1, vmax + .1], [vmin - .1, vmax + .1], 'black')
-        ax.plot(within_gt, within_gen, marker, label=model, markersize=8)
-        ax.set_xlabel('Real Correlation')
-        ax.set_ylabel('Generated Correlation')
-        ax.legend()
+        ax.plot(within_gt, within_gen, marker, label=model, markersize=markersize)
+        # ax.set_xlabel('Real Correlation')
+        # ax.set_ylabel('Generated Correlation')
+        # ax.legend()
         return ax
 
-    def noise_corr(self, generated, model, ax=None, marker='.'):
+    def noise_corr(self, generated, model, ax=None, marker='.', markersize=10):
         """Plots the noise correlation between neurons of
          the generated data vs. the groundtruth data.
 
@@ -345,10 +345,10 @@ class Visualize(Evaluate):
         vmax = np.max([noise_corr_gen.max(), noise_corr_gt.max()])
         vmin = np.max([noise_corr_gen.min(), noise_corr_gt.min()])
         ax.plot([vmin-.1, vmax+.1], [vmin-.1, vmax+.1], 'black')
-        ax.plot(noise_corr_gt, noise_corr_gen, marker, label=model, markersize=8)
-        ax.set_xlabel('Real Noise Correlation')
-        ax.set_ylabel('Generated Noise Correlation')
-        ax.legend()
+        ax.plot(noise_corr_gt, noise_corr_gen, marker, label=model, markersize=markersize)
+        # ax.set_xlabel('Real Noise Correlation')
+        # ax.set_ylabel('Generated Noise Correlation')
+        # ax.legend()
         return ax
 
     def signal_corr(self, generated, model, ax=None, marker='.'):
@@ -378,9 +378,9 @@ class Visualize(Evaluate):
         vmin = np.max([sig_corr_gen.min(), sig_corr_gt.min()])
         ax.plot([vmin-.1, vmax+.1], [vmin-.1, vmax+.1], 'black')
         ax.plot(sig_corr_gt, sig_corr_gen, marker, label=model, markersize=8)
-        ax.set_xlabel('Real Signal Correlation')
-        ax.set_ylabel('Generated Signal Correlation')
-        ax.legend()
+        # ax.set_xlabel('Real Signal Correlation')
+        # ax.set_ylabel('Generated Signal Correlation')
+        # ax.legend()
         return ax
 
     def spiketrains(self, generated, neurons=[0, 1], trial_avg=False, figsize=[12, 3], aspect='auto', labels=False):
