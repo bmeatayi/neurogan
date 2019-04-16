@@ -12,38 +12,34 @@ from models.disc_mlp import Discriminator
 from utils.trainer import TrainerCGAN
 from utils.cgan_dataset import GanDataset
 
-import matplotlib.pyplot as plt
-import matplotlib
 
-matplotlib.use('Agg')
-plt.ioff()
+spike_file = '..//dataset//GLM_2D_10n_shared_noise//data.npy'
+stim_file = '..//dataset//GLM_2D_10n_shared_noise//stim.npy'
 
-spike_file = '..//dataset//GLM_2D_30n_shared_noise//data.npy'
-stim_file = '..//dataset//GLM_2D_30n_shared_noise//stim.npy'
-
-log_folder = 'glm30n//run02_rebar_lr5e-4_hplr1e-3_deeperDiscr//'
-
+log_folder = 'glm10n_shared_noise//run15_rebar_lr1e-4_latentdim3_9layers//'
+is_shared_noise = True
 batch_size = 128
-N = 30
-nt = 30
-nx = 40
+N = 10
+nt = 20
+nx = 30
 
 train_dataset = GanDataset(spike_file=spike_file, stim_file=stim_file,
-                           stim_win_len=nt, cnt_win_len=0, n_split=1, st_end=(0, 13000))
+                           stim_win_len=nt, cnt_win_len=0, n_split=1, st_end=(0, 14000))
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
 val_dataset = GanDataset(spike_file=spike_file, stim_file=stim_file,
-                         stim_win_len=nt, cnt_win_len=0, n_split=1, st_end=(13000, 13999))
+                         stim_win_len=nt, cnt_win_len=0, n_split=1, st_end=(14000, 14999))
 
 val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-generator = GeneratorGLM(latent_dim=1, stim_shape=(nt, nx),
+generator = GeneratorGLM(latent_dim=3, stim_shape=(nt, nx),
                          out_shape=(1, N),
-                         sampler=torch.distributions.bernoulli.Bernoulli)
+                         sampler=torch.distributions.bernoulli.Bernoulli,
+                         is_shared_noise=is_shared_noise)
 
 discriminator = Discriminator(sp_dim=(1, N), stim_dim=(nt, nx),
-                              n_units=[128, 256, 512, 512, 512, 256, 128],
+                              n_units=[128, 256, 256, 256, 256, 256, 256, 128, 64],
                               mid_act_func=nn.LeakyReLU(0.2, inplace=True),
                               p_drop=None,
                               spectral_norm=True)
@@ -54,13 +50,13 @@ solver = TrainerCGAN(optimizer_g=torch.optim.Adam,
                      gan_mode='sn',
                      lambda_gp=None,
                      grad_mode='rebar',
-                     gs_temp=1,
+                     gs_temp=1.,
                      n_neuron=N)
 
 solver.train(generator=generator, discriminator=discriminator,
              train_loader=train_dataloader, val_loader=val_dataloader,
-             lr=5e-4, b1=.5, b2=0.999,
-             log_interval=5000, n_epochs=2500,
+             lr=1e-4, b1=.5, b2=0.999,
+             log_interval=10000, n_epochs=8000,
              n_disc_train=5,
              temp_anneal=1.0
              )
